@@ -540,7 +540,7 @@ static inline mat4 mat4_perspective(int width, int height, float zNear,
     float aspect = (float)width / (float)height;
     float depth = (-zFar) / (zFar - zNear);
     return mat4_transpose((mat4){{{f / aspect, 0.0f, 0.0f, 0.0f},
-                                  {0.0f, -f, 0.0f, 0.0f},
+                                  {0.0f, f, 0.0f, 0.0f},
                                   {0.0f, 0.0f, depth, zNear * depth},
                                   {0.0f, 0.0f, -1.0f, 0.0f}}});
 }
