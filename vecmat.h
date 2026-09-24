@@ -22,6 +22,7 @@
 #pragma once
 
 #include <math.h>
+#include <stdbool.h>
 
 /* GCC and CLANG */
 #if defined(__GNUC__) || defined(__clang__)
@@ -336,8 +337,8 @@ static inline mat4 mat4_mul(mat4 m, mat4 n)
 }
 
 
-/* Matrix inverse */
-static inline mat4 mat4_inverse(mat4 m)
+/* Adjugate matrix, with the determinant of m written to det */
+static inline mat4 mat4_adjugate(mat4 m, float *det)
 {
     mat4 a;
 
@@ -453,16 +454,33 @@ static inline mat4 mat4_inverse(mat4 m)
                   m.array[8] * m.array[1] * m.array[6] -
                   m.array[8] * m.array[2] * m.array[5];
 
-    float det = m.array[0] * a.array[0] + m.array[1] * a.array[4] +
-                m.array[2] * a.array[8] + m.array[3] * a.array[12];
+    *det = m.array[0] * a.array[0] + m.array[1] * a.array[4] +
+           m.array[2] * a.array[8] + m.array[3] * a.array[12];
 
-    mat4 res;
+    return a;
+}
 
-    for (int i = 0; i < 4; i++) {
-        res.cols[i] = vec4_scale(1 / det, a.cols[i]);
+
+/* Matrix inverse, m must be invertible (see mat4_try_inverse) */
+static inline mat4 mat4_inverse(mat4 m)
+{
+    float det;
+    mat4 a = mat4_adjugate(m, &det);
+    return mat4_scale(1 / det, a);
+}
+
+
+/* Matrix inverse, returns false and leaves res untouched if m is singular */
+static inline bool mat4_try_inverse(mat4 m, mat4 *res)
+{
+    float det;
+    mat4 a = mat4_adjugate(m, &det);
+    float inv_det = 1 / det;
+    if (!isfinite(inv_det)) {
+        return false;
     }
-
-    return res;
+    *res = mat4_scale(inv_det, a);
+    return true;
 }
 
 
