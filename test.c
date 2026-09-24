@@ -440,6 +440,86 @@ void test_packed()
     assert(equal(q3.z, 9.0f));
 }
 
+void test_convert()
+{
+    /* Vector 3 to vector 4 */
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec4 r4 = vec4_from_vec3(v3, 4.0f);
+    assert(equal(r4.x, 1.0f));
+    assert(equal(r4.y, 2.0f));
+    assert(equal(r4.z, 3.0f));
+    assert(equal(r4.w, 4.0f));
+
+    /* Vector 4 to vector 3, with the unused lane set to zero */
+    vec4 v4 = vec4_make(5.0f, 6.0f, 7.0f, 8.0f);
+    vec3 r3 = vec3_from_vec4(v4);
+    assert(equal(r3.x, 5.0f));
+    assert(equal(r3.y, 6.0f));
+    assert(equal(r3.z, 7.0f));
+    assert(r3.array[3] == 0.0f);
+
+    /* Round trip */
+    vec3 g3 = vec3_from_vec4(vec4_from_vec3(v3, 1.0f));
+    assert(equal(g3.x, v3.x));
+    assert(equal(g3.y, v3.y));
+    assert(equal(g3.z, v3.z));
+}
+
+void test_mat4_mul_vec4()
+{
+    /* Columns (1, 2, 3, 4), (5, 6, 7, 8), (9, 10, 11, 12), (13, 14, 15, 16) */
+    mat4 m = {{
+        vec4_make(1.0f, 2.0f, 3.0f, 4.0f),
+        vec4_make(5.0f, 6.0f, 7.0f, 8.0f),
+        vec4_make(9.0f, 10.0f, 11.0f, 12.0f),
+        vec4_make(13.0f, 14.0f, 15.0f, 16.0f),
+    }};
+
+    /* A unit vector picks out a column */
+    vec4 c1 = mat4_mul_vec4(m, vec4_make(0.0f, 1.0f, 0.0f, 0.0f));
+    assert(equal(c1.x, 5.0f));
+    assert(equal(c1.y, 6.0f));
+    assert(equal(c1.z, 7.0f));
+    assert(equal(c1.w, 8.0f));
+
+    /* General case: 1 * col0 + 2 * col1 + 3 * col2 + 4 * col3 */
+    vec4 r4 = mat4_mul_vec4(m, vec4_make(1.0f, 2.0f, 3.0f, 4.0f));
+    assert(equal(r4.x, 90.0f));
+    assert(equal(r4.y, 100.0f));
+    assert(equal(r4.z, 110.0f));
+    assert(equal(r4.w, 120.0f));
+
+    /* Identity leaves the vector unchanged */
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
+    vec4 i4 = mat4_mul_vec4(MAT4_IDENTITY, v4);
+    assert(equal(i4.x, v4.x));
+    assert(equal(i4.y, v4.y));
+    assert(equal(i4.z, v4.z));
+    assert(equal(i4.w, v4.w));
+
+    /* Translation moves points (w = 1) but not directions (w = 0) */
+    mat4 t = mat4_trs_translate(vec3_make(10.0f, 20.0f, 30.0f));
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec4 p = mat4_mul_vec4(t, vec4_from_vec3(v3, 1.0f));
+    assert(equal(p.x, 11.0f));
+    assert(equal(p.y, 22.0f));
+    assert(equal(p.z, 33.0f));
+    assert(equal(p.w, 1.0f));
+    vec4 d = mat4_mul_vec4(t, vec4_from_vec3(v3, 0.0f));
+    assert(equal(d.x, 1.0f));
+    assert(equal(d.y, 2.0f));
+    assert(equal(d.z, 3.0f));
+    assert(equal(d.w, 0.0f));
+
+    /* Rotating x by 90 degrees about z gives y */
+    mat4 r = mat4_trs_rotate(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
+    vec4 x = mat4_mul_vec4(r, vec4_make(1.0f, 0.0f, 0.0f, 0.0f));
+    assert(equal(x.x, 0.0f));
+    assert(equal(x.y, 1.0f));
+    assert(equal(x.z, 0.0f));
+    assert(equal(x.w, 0.0f));
+}
+
 int main()
 {
     printf("Testing vm_add()\n");
@@ -465,6 +545,12 @@ int main()
 
     printf("Testing packed types\n");
     test_packed();
+
+    printf("Testing vec4_from_vec3() and vec3_from_vec4()\n");
+    test_convert();
+
+    printf("Testing mat4_mul_vec4()\n");
+    test_mat4_mul_vec4();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
     return 0;
