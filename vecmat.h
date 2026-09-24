@@ -527,7 +527,8 @@ static inline bool mat4_try_inverse(mat4 m, mat4* res)
 /* Scale transform matrix */
 static inline mat4 mat4_trs_scale(vec3 v1)
 {
-    return (mat4){v1.x, 0, 0, 0, 0, v1.y, 0, 0, 0, 0, v1.z, 0, 0, 0, 0, 1};
+    return (mat4){
+        {{v1.x, 0, 0, 0}, {0, v1.y, 0, 0}, {0, 0, v1.z, 0}, {0, 0, 0, 1}}};
 }
 
 
