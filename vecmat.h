@@ -562,7 +562,7 @@ static inline mat4 mat4_trs_translate(vec3 v1)
 
 
 /* Rotate v around axis with angle */
-static inline vec3 vec3_rotate(vec3 v, vec3 axis, float angle)
+static inline vec3 vec3_rotate(vec3 v, float angle, vec3 axis)
 {
     axis = vec3_normalize(axis);
     vec3 q = vec3_scale(sinf(angle / 2.0f), axis);
