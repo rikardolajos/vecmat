@@ -92,7 +92,7 @@ typedef ALIGN(16) union {
 #ifdef VECMAT_USE_GENERICS
 
 /* Add two generic types together */
-#define add(a, b)                                                              \
+#define vm_add(a, b)                                                           \
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_add, default: vec2_add),                \
         vec3: _Generic((b), vec3: vec3_add, default: vec3_add),                \
@@ -100,7 +100,7 @@ typedef ALIGN(16) union {
         mat4: _Generic((b), mat4: mat4_add, default: mat4_add))(a, b)
 
 /* Subtract two generic types from each other */
-#define sub(a, b)                                                              \
+#define vm_sub(a, b)                                                           \
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_sub, default: vec2_sub),                \
         vec3: _Generic((b), vec3: vec3_sub, default: vec3_sub),                \
@@ -108,7 +108,7 @@ typedef ALIGN(16) union {
         mat4: _Generic((b), mat4: mat4_sub, default: mat4_sub))(a, b)
 
 /* Scalar multiplication of a generic type */
-#define scale(f, a)                                                            \
+#define vm_scale(f, a)                                                         \
     _Generic((a),                                                              \
         vec2: vec2_scale,                                                      \
         vec3: vec3_scale,                                                      \
@@ -116,21 +116,22 @@ typedef ALIGN(16) union {
         mat4: mat4_scale)(f, a)
 
 /* Dot multiplication of two vectors */
-#define dot(a, b)                                                              \
+#define vm_dot(a, b)                                                           \
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_dot, default: vec2_dot),                \
         vec3: _Generic((b), vec3: vec3_dot, default: vec3_dot),                \
         vec4: _Generic((b), vec4: vec4_dot, default: vec4_dot))(a, b)
 
 /* Cross multiplication of two vec3 */
-#define cross(a, b) _Generic((a), vec3: _Generic((b), vec3: vec3_cross))(a, b)
+#define vm_cross(a, b)                                                         \
+    _Generic((a), vec3: _Generic((b), vec3: vec3_cross))(a, b)
 
 /* Calculate norm of a generic type */
-#define norm(a)                                                                \
+#define vm_norm(a)                                                             \
     _Generic((a), vec2: vec2_norm, vec3: vec3_norm, vec4: vec4_norm)(a)
 
 /* Calculate normalized vector with same direction */
-#define normalize(a)                                                           \
+#define vm_normalize(a)                                                        \
     _Generic((a),                                                              \
         vec2: vec2_normalize,                                                  \
         vec3: vec3_normalize,                                                  \

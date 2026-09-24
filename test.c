@@ -24,7 +24,7 @@ void test_add()
     assert(equal(r2.y, 6.0f));
 
     /* Vector 2 generic */
-    vec2 g2 = add(v2, u2);
+    vec2 g2 = vm_add(v2, u2);
     assert(equal(g2.x, r2.x));
     assert(equal(g2.y, r2.y));
 
@@ -38,7 +38,7 @@ void test_add()
     assert(equal(r3.z, 9.0f));
 
     /* Vector 3 generic */
-    vec3 g3 = add(v3, u3);
+    vec3 g3 = vm_add(v3, u3);
     assert(equal(g3.x, r3.x));
     assert(equal(g3.y, r3.y));
     assert(equal(g3.z, r3.z));
@@ -54,7 +54,7 @@ void test_add()
     assert(equal(r4.w, 12.0f));
 
     /* Vector 4 generic */
-    vec4 g4 = add(v4, u4);
+    vec4 g4 = vm_add(v4, u4);
     assert(equal(g4.x, r4.x));
     assert(equal(g4.y, r4.y));
     assert(equal(g4.z, r4.z));
@@ -63,7 +63,7 @@ void test_add()
     /* Matrix 4x4 */
     mat4 m4x4 = {v4, v4, v4, v4};
     mat4 n4x4 = {u4, u4, u4, u4};
-    mat4 r4x4 = mat4_add(m4x4, n4x4);
+    mat4 r4x4 = vm_add(m4x4, n4x4);
     assert(equal(r4x4.array[0], r4.x));
     assert(equal(r4x4.array[1], r4.y));
     assert(equal(r4x4.array[2], r4.z));
@@ -82,7 +82,7 @@ void test_add()
     assert(equal(r4x4.array[15], r4.w));
 
     /* Matrix 4x4 generic */
-    mat4 g4x4 = add(m4x4, n4x4);
+    mat4 g4x4 = vm_add(m4x4, n4x4);
     assert(equal(g4x4.array[0], r4.x));
     assert(equal(g4x4.array[1], r4.y));
     assert(equal(g4x4.array[2], r4.z));
@@ -126,7 +126,7 @@ void test_sub()
     assert(equal(r3.z, -3.0f));
 
     /* Vector 3 generic */
-    vec3 g3 = sub(v3, u3);
+    vec3 g3 = vm_sub(v3, u3);
     assert(equal(g3.x, r3.x));
     assert(equal(g3.y, r3.y));
     assert(equal(g3.z, r3.z));
@@ -142,7 +142,7 @@ void test_sub()
     assert(equal(r4.w, -4.0f));
 
     /* Vector 4 generic */
-    vec4 g4 = sub(v4, u4);
+    vec4 g4 = vm_sub(v4, u4);
     assert(equal(g4.x, r4.x));
     assert(equal(g4.y, r4.y));
     assert(equal(g4.z, r4.z));
@@ -151,7 +151,7 @@ void test_sub()
     /* Matrix 4x4 */
     mat4 m4x4 = {v4, v4, v4, v4};
     mat4 n4x4 = {u4, u4, u4, u4};
-    mat4 r4x4 = mat4_sub(m4x4, n4x4);
+    mat4 r4x4 = vm_sub(m4x4, n4x4);
     assert(equal(r4x4.array[0], r4.x));
     assert(equal(r4x4.array[1], r4.y));
     assert(equal(r4x4.array[2], r4.z));
@@ -170,7 +170,7 @@ void test_sub()
     assert(equal(r4x4.array[15], r4.w));
 
     /* Matrix 4x4 generic */
-    mat4 g4x4 = sub(m4x4, n4x4);
+    mat4 g4x4 = vm_sub(m4x4, n4x4);
     assert(equal(g4x4.array[0], r4.x));
     assert(equal(g4x4.array[1], r4.y));
     assert(equal(g4x4.array[2], r4.z));
@@ -201,7 +201,7 @@ void test_scale()
     assert(equal(r2.y, 4.0f));
 
     /* Vector 2 generic */
-    vec2 g2 = scale(s, v2);
+    vec2 g2 = vm_scale(s, v2);
     assert(equal(g2.x, r2.x));
     assert(equal(g2.y, r2.y));
 
@@ -214,7 +214,7 @@ void test_scale()
     assert(equal(r3.z, 6.0f));
 
     /* Vector 3 generic */
-    vec3 g3 = scale(s, v3);
+    vec3 g3 = vm_scale(s, v3);
     assert(equal(g3.x, r3.x));
     assert(equal(g3.y, r3.y));
     assert(equal(g3.z, r3.z));
@@ -229,7 +229,7 @@ void test_scale()
     assert(equal(r4.w, 8.0f));
 
     /* Vector 4 generic */
-    vec4 g4 = scale(s, v4);
+    vec4 g4 = vm_scale(s, v4);
     assert(equal(g4.x, r4.x));
     assert(equal(g4.y, r4.y));
     assert(equal(g4.z, r4.z));
@@ -256,7 +256,7 @@ void test_scale()
     assert(equal(r4x4.array[15], r4.w));
 
     /* Matrix 4x4 generic */
-    mat4 g4x4 = scale(s, m4x4);
+    mat4 g4x4 = vm_scale(s, m4x4);
     assert(equal(g4x4.array[0], r4.x));
     assert(equal(g4x4.array[1], r4.y));
     assert(equal(g4x4.array[2], r4.z));
@@ -321,7 +321,7 @@ void test_cross()
     assert(equal(r3.y, 0.0f));
     assert(equal(r3.z, 1.0f));
 
-    vec3 g3 = cross(v3, u3);
+    vec3 g3 = vm_cross(v3, u3);
     assert(equal(g3.x, r3.x));
     assert(equal(g3.y, r3.y));
     assert(equal(g3.z, r3.z));
@@ -365,7 +365,7 @@ void test_normalize()
     assert(equal(norm(r2), 1.0f));
 
     /* Vector 2 generic */
-    vec2 g2 = normalize(v2);
+    vec2 g2 = vm_normalize(v2);
     assert(equal(norm(g2), norm(r2)));
 
     /* Vector 3 */
@@ -374,7 +374,7 @@ void test_normalize()
     assert(equal(norm(r3), 1.0f));
 
     /* Vector 3 generic */
-    vec3 g3 = normalize(v3);
+    vec3 g3 = vm_normalize(v3);
     assert(equal(norm(g3), norm(r3)));
 
     /* Vector 4 */
@@ -383,7 +383,7 @@ void test_normalize()
     assert(equal(norm(r4), 1.0f));
 
     /* Vector 4 generic */
-    vec4 g4 = normalize(v4);
+    vec4 g4 = vm_normalize(v4);
     assert(equal(norm(g4), norm(r4)));
 }
 
