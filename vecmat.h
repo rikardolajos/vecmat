@@ -525,8 +525,8 @@ static inline mat4 mat4_orthographic(float right, float top, float near,
 {
     return mat4_transpose((mat4){{
         {1.0f / right, 0.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f / top, 0.0f, 0.0f},
-        {0.0f, 0.0f, (-2) / (far - near), -(far + near) / (far - near)},
+        {0.0f, -1.0f / top, 0.0f, 0.0f},
+        {0.0f, 0.0f, -1.0f / (far - near), -near / (far - near)},
         {0.0f, 0.0f, 0.0f, 1.0f},
     }});
 }
