@@ -75,6 +75,24 @@ Quaternions follow the same conventions as the matrices: rotations are right-han
     quat halfway = quat_slerp(QUAT_IDENTITY, q, 0.5f);
 ```
 
+Quaternions can also be created from Euler angles, where the order is always explicit, from a direction to look along, or from the rotation part of a matrix.
+A full translate-rotate-scale matrix can be built directly with `mat4_trs()`:
+
+```C
+    /* Rotate around x, then y, then z, all around the fixed world axes */
+    quat e = quat_from_euler(vec3_make(0.1f, 0.2f, 0.3f), VECMAT_EULER_XYZ);
+
+    /* Turn -z towards a direction, like a camera and mat4_lookat() */
+    quat look = quat_lookat(vec3_make(1.0f, 0.0f, -1.0f),
+                            vec3_make(0.0f, 1.0f, 0.0f));
+
+    /* Scale, then rotate, then translate */
+    mat4 model = mat4_trs(vec3_make(0.0f, 1.0f, 0.0f), e, vec3_make(2.0f, 2.0f, 2.0f));
+
+    /* Get the rotation back, ignoring translation and positive scale */
+    quat r = quat_from_mat4(model);
+```
+
 The library also contains some functions for creating translate-rotate-scale transformations that are commonly used in computer graphics.
 They are prefixed with `mat4_trs_*`.
 

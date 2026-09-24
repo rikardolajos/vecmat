@@ -125,7 +125,8 @@ typedef union {
 } vec3_packed;
 
 _Static_assert(sizeof(vec2_packed) == 8, "VECMAT: vec2_packed must be 8 bytes");
-_Static_assert(sizeof(vec3_packed) == 12, "VECMAT: vec3_packed must be 12 bytes");
+_Static_assert(sizeof(vec3_packed) == 12,
+               "VECMAT: vec3_packed must be 12 bytes");
 
 
 #ifdef VECMAT_USE_GENERICS
@@ -723,6 +724,47 @@ static inline quat quat_mul(quat a, quat b)
 }
 
 
+/* Order of the rotations for quat_from_euler(). The rotations are applied in
+ * the order of the letters, around the fixed world axes: VECMAT_EULER_XYZ
+ * rotates around x first, then y and last z. This is the same as rotating
+ * around the rotated local axes in the reverse order (z, then y', then x''). */
+typedef enum {
+    VECMAT_EULER_XYZ,
+    VECMAT_EULER_XZY,
+    VECMAT_EULER_YXZ,
+    VECMAT_EULER_YZX,
+    VECMAT_EULER_ZXY,
+    VECMAT_EULER_ZYX,
+} vecmat_euler_order;
+
+/* Unit quaternion from Euler angles in radians, where angles.x is the rotation
+ * around the x axis and so on, applied in the given order */
+static inline quat quat_from_euler(vec3 angles, vecmat_euler_order order)
+{
+    vec3 h = vec3_scale(0.5f, angles);
+    quat qx = quat_make(sinf(h.x), 0.0f, 0.0f, cosf(h.x));
+    quat qy = quat_make(0.0f, sinf(h.y), 0.0f, cosf(h.y));
+    quat qz = quat_make(0.0f, 0.0f, sinf(h.z), cosf(h.z));
+
+    /* quat_mul(a, b) applies b first, so the first rotation is on the right */
+    switch (order) {
+    case VECMAT_EULER_XYZ:
+        return quat_mul(qz, quat_mul(qy, qx));
+    case VECMAT_EULER_XZY:
+        return quat_mul(qy, quat_mul(qz, qx));
+    case VECMAT_EULER_YXZ:
+        return quat_mul(qz, quat_mul(qx, qy));
+    case VECMAT_EULER_YZX:
+        return quat_mul(qx, quat_mul(qz, qy));
+    case VECMAT_EULER_ZXY:
+        return quat_mul(qy, quat_mul(qx, qz));
+    case VECMAT_EULER_ZYX:
+        return quat_mul(qx, quat_mul(qy, qz));
+    }
+    return QUAT_IDENTITY;
+}
+
+
 /* Dot product of two quaternions */
 static inline float quat_dot(quat a, quat b)
 {
@@ -780,6 +822,76 @@ static inline mat4 mat4_from_quat(quat q)
     }};
 }
 
+/* Rotation of a matrix as a unit quaternion. Translation is ignored and the
+ * columns are normalized, so positive scale is removed. The matrix must not
+ * contain shear, reflection (negative scale) or zero scale. */
+static inline quat quat_from_mat4(mat4 m)
+{
+    vec3 c0 = vec3_normalize(vec3_from_vec4(m.cols[0]));
+    vec3 c1 = vec3_normalize(vec3_from_vec4(m.cols[1]));
+    vec3 c2 = vec3_normalize(vec3_from_vec4(m.cols[2]));
+
+    /* rij is the element in row i and column j */
+    float r00 = c0.x, r10 = c0.y, r20 = c0.z;
+    float r01 = c1.x, r11 = c1.y, r21 = c1.z;
+    float r02 = c2.x, r12 = c2.y, r22 = c2.z;
+
+    /* Shepperd's method: compute the largest of 4w, 4x, 4y and 4z from the
+     * diagonal and divide by it, which avoids dividing by a small number */
+    float trace = r00 + r11 + r22;
+    quat q;
+    if (trace > 0.0f) {
+        float s = 2.0f * sqrtf(1.0f + trace); /* 4w */
+        q = quat_make((r21 - r12) / s, (r02 - r20) / s, (r10 - r01) / s,
+                      0.25f * s);
+    } else if (r00 > r11 && r00 > r22) {
+        float s = 2.0f * sqrtf(1.0f + r00 - r11 - r22); /* 4x */
+        q = quat_make(0.25f * s, (r01 + r10) / s, (r02 + r20) / s,
+                      (r21 - r12) / s);
+    } else if (r11 > r22) {
+        float s = 2.0f * sqrtf(1.0f + r11 - r00 - r22); /* 4y */
+        q = quat_make((r01 + r10) / s, 0.25f * s, (r12 + r21) / s,
+                      (r02 - r20) / s);
+    } else {
+        float s = 2.0f * sqrtf(1.0f + r22 - r00 - r11); /* 4z */
+        q = quat_make((r02 + r20) / s, (r12 + r21) / s, 0.25f * s,
+                      (r10 - r01) / s);
+    }
+    return quat_normalize(q);
+}
+
+
+/* Transform matrix that scales, then rotates and last translates. The same as
+ * mat4_mul(translate, mat4_mul(rotate, scale)), but without the products. */
+static inline mat4 mat4_trs(vec3 translation, quat rotation, vec3 scale)
+{
+    mat4 m = mat4_from_quat(rotation);
+    m.cols[0] = vec4_scale(scale.x, m.cols[0]);
+    m.cols[1] = vec4_scale(scale.y, m.cols[1]);
+    m.cols[2] = vec4_scale(scale.z, m.cols[2]);
+    m.cols[3] = vec4_from_vec3(translation, 1.0f);
+    return m;
+}
+
+
+/* Unit quaternion that turns the -z axis towards forward, keeping the y axis
+ * as close to up as possible. This is the orientation of a camera looking
+ * along forward, the same convention as mat4_lookat(). forward must be
+ * non-zero and not parallel to up. */
+static inline quat quat_lookat(vec3 forward, vec3 up)
+{
+    vec3 back = vec3_normalize(vec3_scale(-1.0f, forward));
+    vec3 right = vec3_normalize(vec3_cross(up, back));
+    vec3 new_up = vec3_cross(back, right);
+    mat4 m = {{
+        vec4_from_vec3(right, 0.0f),
+        vec4_from_vec3(new_up, 0.0f),
+        vec4_from_vec3(back, 0.0f),
+        vec4_make(0.0f, 0.0f, 0.0f, 1.0f),
+    }};
+    return quat_from_mat4(m);
+}
+
 
 /* Normalized linear interpolation between two unit quaternions along the
  * shortest path. Cheaper than quat_slerp(), but the angular speed is not
@@ -815,8 +927,8 @@ static inline quat quat_slerp(quat a, quat b, float t)
     float s = sinf(theta);
     __m128 wa = _mm_set_ps1(sinf((1.0f - t) * theta) / s);
     __m128 wb = _mm_set_ps1(sign * sinf(t * theta) / s);
-    return (quat){
-        .sse = _mm_add_ps(_mm_mul_ps(wa, a.sse), _mm_mul_ps(wb, b.sse))};
+    return (quat){.sse =
+                      _mm_add_ps(_mm_mul_ps(wa, a.sse), _mm_mul_ps(wb, b.sse))};
 }
 
 

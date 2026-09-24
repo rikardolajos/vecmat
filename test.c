@@ -424,8 +424,8 @@ void test_packed()
     vec3_packed a3[2];
     assert(sizeof(vec2_packed) == 8);
     assert(sizeof(vec3_packed) == 12);
-    assert((char *)&a2[1] - (char *)&a2[0] == 8);
-    assert((char *)&a3[1] - (char *)&a3[0] == 12);
+    assert((char*)&a2[1] - (char*)&a2[0] == 8);
+    assert((char*)&a3[1] - (char*)&a3[0] == 12);
 
     /* Vector 2 pack */
     vec2 v2 = vec2_make(1.0f, 2.0f);
@@ -457,7 +457,7 @@ void test_packed()
     /* Packed arrays are contiguous floats */
     a3[0] = vec3_pack(vec3_make(1.0f, 2.0f, 3.0f));
     a3[1] = vec3_pack(vec3_make(4.0f, 5.0f, 6.0f));
-    float *f = a3[0].array;
+    float* f = a3[0].array;
     for (int i = 0; i < 6; i++) {
         assert(equal(f[i], (float)(i + 1)));
     }
@@ -615,7 +615,8 @@ void test_mat4_inverse()
     /* A general transform times its inverse gives identity, on either side.
      * Rounding in the 4x4 inverse needs a looser tolerance than EPSILON. */
     mat4 r = mat4_trs_rotate(0.7f, vec3_make(1.0f, 1.0f, 0.0f));
-    mat4 m = mat4_mul(t, mat4_mul(r, mat4_trs_scale(vec3_make(2.0f, 3.0f, 4.0f))));
+    mat4 m =
+        mat4_mul(t, mat4_mul(r, mat4_trs_scale(vec3_make(2.0f, 3.0f, 4.0f))));
     mat4 mi = mat4_inverse(m);
     assert(matrices_close(mat4_mul(m, mi), MAT4_IDENTITY, 1e-5f));
     assert(matrices_close(mat4_mul(mi, m), MAT4_IDENTITY, 1e-5f));
@@ -678,7 +679,7 @@ void test_mat4_try_inverse()
 static const float quat_test_angles[QUAT_TEST_CASES] = {
     0.0f, 1.57079632679f, 0.7f, -2.3f, 3.14159265359f, 4.0f};
 static const float quat_test_axes[QUAT_TEST_CASES][3] = {
-    {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f},
+    {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f},  {0.0f, 1.0f, 0.0f},
     {1.0f, 2.0f, 3.0f}, {-1.0f, 1.0f, 0.5f}, {0.3f, -0.2f, 0.9f}};
 
 static quat quat_test_case(int i)
@@ -705,7 +706,8 @@ void test_quat_basic()
     assert(equal(q.array[3], 4.0f));
 
     /* 90 degrees around z: (0, 0, sin(45), cos(45)) */
-    quat z90 = quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
+    quat z90 =
+        quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
     assert(equal(z90.x, 0.0f));
     assert(equal(z90.y, 0.0f));
     assert(equal(z90.z, 0.70710678f));
@@ -734,13 +736,13 @@ void test_quat_to_mat4()
         vec3 axis = vec3_make(quat_test_axes[i][0], quat_test_axes[i][1],
                               quat_test_axes[i][2]);
         mat4 expected = mat4_trs_rotate(quat_test_angles[i], axis);
-        assert(matrices_close(mat4_from_quat(quat_test_case(i)), expected,
-                              1e-5f));
+        assert(
+            matrices_close(mat4_from_quat(quat_test_case(i)), expected, 1e-5f));
     }
 
     /* Identity gives the identity matrix */
-    assert(matrices_close(mat4_from_quat(QUAT_IDENTITY), MAT4_IDENTITY,
-                          EPSILON));
+    assert(
+        matrices_close(mat4_from_quat(QUAT_IDENTITY), MAT4_IDENTITY, EPSILON));
 
     /* q and -q give the same matrix */
     quat q = quat_test_case(3);
@@ -751,7 +753,8 @@ void test_quat_to_mat4()
 void test_quat_rotate_vec3()
 {
     /* 90 degrees around z takes x to y */
-    quat z90 = quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
+    quat z90 =
+        quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
     vec3 y = quat_rotate_vec3(z90, vec3_make(1.0f, 0.0f, 0.0f));
     assert(vec3_close(y, vec3_make(0.0f, 1.0f, 0.0f), 1e-6f));
 
@@ -810,7 +813,8 @@ void test_quat_mul()
     }
 
     /* Rotations around different axes do not commute */
-    quat x90 = quat_from_axis_angle(1.57079632679f, vec3_make(1.0f, 0.0f, 0.0f));
+    quat x90 =
+        quat_from_axis_angle(1.57079632679f, vec3_make(1.0f, 0.0f, 0.0f));
     assert(!rotations_close(quat_mul(x90, z90), quat_mul(z90, x90), 1e-3f));
 }
 
@@ -891,6 +895,179 @@ void test_quat_interpolation()
     }
 }
 
+void test_quat_from_mat4()
+{
+    /* Round trip through the matrix for the test cases */
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        quat q = quat_test_case(i);
+        quat r = quat_from_mat4(mat4_from_quat(q));
+        assert(rotations_close(r, q, 1e-5f));
+        assert(fabsf(quat_norm(r) - 1.0f) < 1e-6f);
+    }
+
+    /* Each branch of Shepperd's method: identity (trace), and 180 degrees
+     * around x, y and z (largest diagonal element) */
+    quat id = QUAT_IDENTITY;
+    quat x180 = quat_make(1.0f, 0.0f, 0.0f, 0.0f);
+    quat y180 = quat_make(0.0f, 1.0f, 0.0f, 0.0f);
+    quat z180 = quat_make(0.0f, 0.0f, 1.0f, 0.0f);
+    assert(rotations_close(quat_from_mat4(MAT4_IDENTITY), id, EPSILON));
+    assert(rotations_close(quat_from_mat4(mat4_from_quat(x180)), x180, 1e-6f));
+    assert(rotations_close(quat_from_mat4(mat4_from_quat(y180)), y180, 1e-6f));
+    assert(rotations_close(quat_from_mat4(mat4_from_quat(z180)), z180, 1e-6f));
+
+    /* Many rotations, including angles near 180 degrees where the trace is
+     * close to -1, give back the same matrix */
+    vec3 axes[] = {vec3_make(1.0f, 0.0f, 0.0f),  vec3_make(0.0f, 1.0f, 0.0f),
+                   vec3_make(0.0f, 0.0f, 1.0f),  vec3_make(1.0f, 1.0f, 1.0f),
+                   vec3_make(-2.0f, 0.5f, 1.0f), vec3_make(0.1f, -1.0f, 0.3f)};
+    for (int a = 0; a < 6; a++) {
+        for (int k = -40; k <= 40; k++) {
+            float angle = (float)k * 3.14159265359f / 20.0f;
+            mat4 m = mat4_trs_rotate(angle, axes[a]);
+            quat q = quat_from_mat4(m);
+            assert(rotations_close(q, quat_from_axis_angle(angle, axes[a]),
+                                   1e-5f));
+            assert(matrices_close(mat4_from_quat(q), m, 1e-5f));
+        }
+    }
+
+    /* Translation and positive scale are ignored */
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        quat q = quat_test_case(i);
+        mat4 m = mat4_trs(vec3_make(1.0f, -2.0f, 3.0f), q,
+                          vec3_make(0.5f, 2.0f, 3.0f));
+        assert(rotations_close(quat_from_mat4(m), q, 1e-5f));
+    }
+}
+
+void test_mat4_trs()
+{
+    /* The same as translate * rotate * scale */
+    vec3 t = vec3_make(1.0f, -2.0f, 3.0f);
+    vec3 s = vec3_make(0.5f, 2.0f, 3.0f);
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        quat q = quat_test_case(i);
+        mat4 expected =
+            mat4_mul(mat4_trs_translate(t),
+                     mat4_mul(mat4_from_quat(q), mat4_trs_scale(s)));
+        assert(matrices_close(mat4_trs(t, q, s), expected, 1e-5f));
+    }
+
+    /* Scales, then rotates, then translates a point: (1, 0, 0) is scaled to
+     * (2, 0, 0), rotated to (0, 2, 0) and translated to (0, 2, 5) */
+    quat z90 =
+        quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
+    mat4 m =
+        mat4_trs(vec3_make(0.0f, 0.0f, 5.0f), z90, vec3_make(2.0f, 1.0f, 1.0f));
+    vec4 p = mat4_mul_vec4(m, vec4_make(1.0f, 0.0f, 0.0f, 1.0f));
+    assert(fabsf(p.x - 0.0f) < 1e-6f);
+    assert(fabsf(p.y - 2.0f) < 1e-6f);
+    assert(fabsf(p.z - 5.0f) < 1e-6f);
+    assert(equal(p.w, 1.0f));
+
+    /* Identity arguments give the identity matrix */
+    mat4 i = mat4_trs(vec3_make(0.0f, 0.0f, 0.0f), QUAT_IDENTITY,
+                      vec3_make(1.0f, 1.0f, 1.0f));
+    assert(matrices_close(i, MAT4_IDENTITY, EPSILON));
+}
+
+void test_quat_from_euler()
+{
+    vec3 x = vec3_make(1.0f, 0.0f, 0.0f);
+    vec3 y = vec3_make(0.0f, 1.0f, 0.0f);
+    vec3 z = vec3_make(0.0f, 0.0f, 1.0f);
+    vecmat_euler_order orders[] = {VECMAT_EULER_XYZ, VECMAT_EULER_XZY,
+                                   VECMAT_EULER_YXZ, VECMAT_EULER_YZX,
+                                   VECMAT_EULER_ZXY, VECMAT_EULER_ZYX};
+
+    /* Zero angles give the identity, and a single angle is a rotation around
+     * that axis, in any order */
+    for (int i = 0; i < 6; i++) {
+        vecmat_euler_order o = orders[i];
+        quat id = QUAT_IDENTITY;
+        assert(rotations_close(quat_from_euler(vec3_make(0.0f, 0.0f, 0.0f), o),
+                               id, EPSILON));
+        assert(rotations_close(quat_from_euler(vec3_make(0.7f, 0.0f, 0.0f), o),
+                               quat_from_axis_angle(0.7f, x), 1e-6f));
+        assert(rotations_close(quat_from_euler(vec3_make(0.0f, 0.7f, 0.0f), o),
+                               quat_from_axis_angle(0.7f, y), 1e-6f));
+        assert(rotations_close(quat_from_euler(vec3_make(0.0f, 0.0f, 0.7f), o),
+                               quat_from_axis_angle(0.7f, z), 1e-6f));
+    }
+
+    /* Each order applies the rotations in the order of its letters, the same
+     * as multiplying the rotation matrices with the first one on the right */
+    vec3 angles = vec3_make(0.3f, -1.1f, 2.5f);
+    mat4 rx = mat4_trs_rotate(angles.x, x);
+    mat4 ry = mat4_trs_rotate(angles.y, y);
+    mat4 rz = mat4_trs_rotate(angles.z, z);
+    mat4 expected[] = {
+        mat4_mul(rz, mat4_mul(ry, rx)), /* XYZ */
+        mat4_mul(ry, mat4_mul(rz, rx)), /* XZY */
+        mat4_mul(rz, mat4_mul(rx, ry)), /* YXZ */
+        mat4_mul(rx, mat4_mul(rz, ry)), /* YZX */
+        mat4_mul(ry, mat4_mul(rx, rz)), /* ZXY */
+        mat4_mul(rx, mat4_mul(ry, rz)), /* ZYX */
+    };
+    for (int i = 0; i < 6; i++) {
+        mat4 m = mat4_from_quat(quat_from_euler(angles, orders[i]));
+        assert(matrices_close(m, expected[i], 1e-5f));
+    }
+
+    /* The order matters: with 90 degrees around x and z, the y axis is first
+     * rotated to z by XYZ, and first rotated to -x by ZYX */
+    vec3 a = vec3_make(1.57079632679f, 0.0f, 1.57079632679f);
+    vec3 xyz = quat_rotate_vec3(quat_from_euler(a, VECMAT_EULER_XYZ), y);
+    vec3 zyx = quat_rotate_vec3(quat_from_euler(a, VECMAT_EULER_ZYX), y);
+    assert(vec3_close(xyz, vec3_make(0.0f, 0.0f, 1.0f), 1e-6f));
+    assert(vec3_close(zyx, vec3_make(-1.0f, 0.0f, 0.0f), 1e-6f));
+}
+
+void test_quat_lookat()
+{
+    vec3 up = vec3_make(0.0f, 1.0f, 0.0f);
+
+    /* Looking along -z is no rotation */
+    quat id = QUAT_IDENTITY;
+    quat q = quat_lookat(vec3_make(0.0f, 0.0f, -1.0f), up);
+    assert(rotations_close(q, id, 1e-6f));
+
+    /* Looking along +z is 180 degrees around y */
+    q = quat_lookat(vec3_make(0.0f, 0.0f, 1.0f), up);
+    assert(rotations_close(q, quat_make(0.0f, 1.0f, 0.0f, 0.0f), 1e-6f));
+
+    vec3 forwards[] = {vec3_make(1.0f, 0.0f, 0.0f), vec3_make(3.0f, 4.0f, 0.0f),
+                       vec3_make(-1.0f, -2.0f, 0.5f),
+                       vec3_make(0.2f, 0.3f, -5.0f)};
+    for (int i = 0; i < 4; i++) {
+        vec3 f = forwards[i];
+        q = quat_lookat(f, up);
+        assert(fabsf(quat_norm(q) - 1.0f) < 1e-6f);
+
+        /* -z is turned towards forward */
+        vec3 r = quat_rotate_vec3(q, vec3_make(0.0f, 0.0f, -1.0f));
+        assert(vec3_close(r, vec3_normalize(f), 1e-5f));
+
+        /* x stays horizontal and y leans towards up */
+        vec3 rx = quat_rotate_vec3(q, vec3_make(1.0f, 0.0f, 0.0f));
+        vec3 ry = quat_rotate_vec3(q, up);
+        assert(fabsf(vec3_dot(rx, up)) < 1e-5f);
+        assert(vec3_dot(ry, up) > 0.0f);
+
+        /* The same orientation as mat4_lookat, whose rotation part is the
+         * inverse (the transpose) of the camera orientation */
+        vec3 pos = vec3_make(1.0f, 2.0f, 3.0f);
+        mat4 view = mat4_lookat(pos, vec3_add(pos, f), up);
+        mat4 camera = mat4_from_quat(q);
+        for (int c = 0; c < 3; c++) {
+            for (int row = 0; row < 3; row++) {
+                assert(fabsf(view.cr[c][row] - camera.cr[row][c]) < 1e-5f);
+            }
+        }
+    }
+}
+
 int main()
 {
     printf("Testing vm_add()\n");
@@ -949,6 +1126,18 @@ int main()
 
     printf("Testing quat_slerp() and quat_nlerp()\n");
     test_quat_interpolation();
+
+    printf("Testing quat_from_mat4()\n");
+    test_quat_from_mat4();
+
+    printf("Testing mat4_trs()\n");
+    test_mat4_trs();
+
+    printf("Testing quat_from_euler()\n");
+    test_quat_from_euler();
+
+    printf("Testing quat_lookat()\n");
+    test_quat_lookat();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
     return 0;
