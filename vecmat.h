@@ -520,13 +520,13 @@ static inline vec3 vec3_rotate(vec3 v, vec3 axis, float angle)
 
 
 /* Return a orthographic projection matrix */
-static inline mat4 mat4_orthographic(float right, float top, float near,
-                                     float far)
+static inline mat4 mat4_orthographic(float right, float top, float zNear,
+                                     float zFar)
 {
     return mat4_transpose((mat4){{
         {1.0f / right, 0.0f, 0.0f, 0.0f},
         {0.0f, -1.0f / top, 0.0f, 0.0f},
-        {0.0f, 0.0f, -1.0f / (far - near), -near / (far - near)},
+        {0.0f, 0.0f, -1.0f / (zFar - zNear), -zNear / (zFar - zNear)},
         {0.0f, 0.0f, 0.0f, 1.0f},
     }});
 }
