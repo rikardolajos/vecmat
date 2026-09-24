@@ -24,6 +24,25 @@ bool matrices_close(mat4 a, mat4 b, float tolerance)
     return true;
 }
 
+/* Compare two quaternions as rotations, where q and -q are the same rotation */
+bool rotations_close(quat a, quat b, float tolerance)
+{
+    bool same = true;
+    bool opposite = true;
+    for (int i = 0; i < 4; i++) {
+        same = same && fabsf(a.array[i] - b.array[i]) < tolerance;
+        opposite = opposite && fabsf(a.array[i] + b.array[i]) < tolerance;
+    }
+    return same || opposite;
+}
+
+/* Compare two vec3 with the given tolerance */
+bool vec3_close(vec3 a, vec3 b, float tolerance)
+{
+    return fabsf(a.x - b.x) < tolerance && fabsf(a.y - b.y) < tolerance &&
+           fabsf(a.z - b.z) < tolerance;
+}
+
 void test_add()
 {
     /* Vector 2 */
@@ -653,6 +672,225 @@ void test_mat4_try_inverse()
 #endif
 }
 
+/* Rotations used by the quaternion tests, covering the principal axes, an
+ * oblique non-normalized axis, and angles past 180 degrees */
+#define QUAT_TEST_CASES 6
+static const float quat_test_angles[QUAT_TEST_CASES] = {
+    0.0f, 1.57079632679f, 0.7f, -2.3f, 3.14159265359f, 4.0f};
+static const float quat_test_axes[QUAT_TEST_CASES][3] = {
+    {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 0.0f},
+    {1.0f, 2.0f, 3.0f}, {-1.0f, 1.0f, 0.5f}, {0.3f, -0.2f, 0.9f}};
+
+static quat quat_test_case(int i)
+{
+    vec3 axis = vec3_make(quat_test_axes[i][0], quat_test_axes[i][1],
+                          quat_test_axes[i][2]);
+    return quat_from_axis_angle(quat_test_angles[i], axis);
+}
+
+void test_quat_basic()
+{
+    /* Identity */
+    quat id = QUAT_IDENTITY;
+    assert(equal(id.x, 0.0f));
+    assert(equal(id.y, 0.0f));
+    assert(equal(id.z, 0.0f));
+    assert(equal(id.w, 1.0f));
+
+    /* quat_make takes the components in storage order */
+    quat q = quat_make(1.0f, 2.0f, 3.0f, 4.0f);
+    assert(equal(q.array[0], 1.0f));
+    assert(equal(q.array[1], 2.0f));
+    assert(equal(q.array[2], 3.0f));
+    assert(equal(q.array[3], 4.0f));
+
+    /* 90 degrees around z: (0, 0, sin(45), cos(45)) */
+    quat z90 = quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
+    assert(equal(z90.x, 0.0f));
+    assert(equal(z90.y, 0.0f));
+    assert(equal(z90.z, 0.70710678f));
+    assert(equal(z90.w, 0.70710678f));
+
+    /* The axis is normalized, so the result is a unit quaternion */
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        assert(fabsf(quat_norm(quat_test_case(i)) - 1.0f) < 1e-6f);
+    }
+
+    /* Norm, normalize and dot, also through the generics */
+    quat n = quat_normalize(q);
+    assert(equal(quat_norm(q), sqrtf(30.0f)));
+    assert(equal(vm_norm(q), quat_norm(q)));
+    assert(equal(quat_norm(n), 1.0f));
+    assert(equal(vm_norm(vm_normalize(q)), 1.0f));
+    assert(equal(quat_dot(q, q), 30.0f));
+    assert(equal(vm_dot(q, id), 4.0f));
+}
+
+void test_quat_to_mat4()
+{
+    /* Agrees with mat4_trs_rotate, which checks the axis-angle convention,
+     * the handedness and the matrix conversion together */
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        vec3 axis = vec3_make(quat_test_axes[i][0], quat_test_axes[i][1],
+                              quat_test_axes[i][2]);
+        mat4 expected = mat4_trs_rotate(quat_test_angles[i], axis);
+        assert(matrices_close(mat4_from_quat(quat_test_case(i)), expected,
+                              1e-5f));
+    }
+
+    /* Identity gives the identity matrix */
+    assert(matrices_close(mat4_from_quat(QUAT_IDENTITY), MAT4_IDENTITY,
+                          EPSILON));
+
+    /* q and -q give the same matrix */
+    quat q = quat_test_case(3);
+    quat neg = quat_make(-q.x, -q.y, -q.z, -q.w);
+    assert(matrices_close(mat4_from_quat(q), mat4_from_quat(neg), EPSILON));
+}
+
+void test_quat_rotate_vec3()
+{
+    /* 90 degrees around z takes x to y */
+    quat z90 = quat_from_axis_angle(1.57079632679f, vec3_make(0.0f, 0.0f, 1.0f));
+    vec3 y = quat_rotate_vec3(z90, vec3_make(1.0f, 0.0f, 0.0f));
+    assert(vec3_close(y, vec3_make(0.0f, 1.0f, 0.0f), 1e-6f));
+
+    /* Agrees with vec3_rotate and with the rotation matrix */
+    vec3 v = vec3_make(0.5f, -1.5f, 2.0f);
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        vec3 axis = vec3_make(quat_test_axes[i][0], quat_test_axes[i][1],
+                              quat_test_axes[i][2]);
+        quat q = quat_test_case(i);
+        vec3 r = quat_rotate_vec3(q, v);
+        assert(vec3_close(r, vec3_rotate(v, quat_test_angles[i], axis), 1e-5f));
+        vec3 m = vec3_from_vec4(
+            mat4_mul_vec4(mat4_from_quat(q), vec4_from_vec3(v, 0.0f)));
+        assert(vec3_close(r, m, 1e-5f));
+
+        /* Rotation preserves length */
+        assert(fabsf(vec3_norm(r) - vec3_norm(v)) < 1e-5f);
+    }
+}
+
+void test_quat_mul()
+{
+    quat id = QUAT_IDENTITY;
+    quat q = quat_test_case(3);
+
+    /* Identity on either side */
+    assert(rotations_close(quat_mul(id, q), q, EPSILON));
+    assert(rotations_close(quat_mul(q, id), q, EPSILON));
+
+    /* Hamilton product: i * j = k and j * i = -k */
+    quat i = quat_make(1.0f, 0.0f, 0.0f, 0.0f);
+    quat j = quat_make(0.0f, 1.0f, 0.0f, 0.0f);
+    quat ij = quat_mul(i, j);
+    quat ji = quat_mul(j, i);
+    assert(equal(ij.x, 0.0f) && equal(ij.y, 0.0f) && equal(ij.z, 1.0f) &&
+           equal(ij.w, 0.0f));
+    assert(equal(ji.x, 0.0f) && equal(ji.y, 0.0f) && equal(ji.z, -1.0f) &&
+           equal(ji.w, 0.0f));
+
+    /* Two 90 degree rotations around z make 180 degrees */
+    vec3 z = vec3_make(0.0f, 0.0f, 1.0f);
+    quat z90 = quat_from_axis_angle(1.57079632679f, z);
+    quat z180 = quat_from_axis_angle(3.14159265359f, z);
+    assert(rotations_close(quat_mul(z90, z90), z180, 1e-6f));
+
+    /* Same composition order as mat4_mul: b is applied first, then a */
+    vec3 v = vec3_make(0.5f, -1.5f, 2.0f);
+    for (int k = 0; k < QUAT_TEST_CASES; k++) {
+        quat a = quat_test_case(k);
+        quat b = quat_test_case((k + 1) % QUAT_TEST_CASES);
+        quat ab = quat_mul(a, b);
+        mat4 expected = mat4_mul(mat4_from_quat(a), mat4_from_quat(b));
+        assert(matrices_close(mat4_from_quat(ab), expected, 1e-5f));
+        vec3 sequential = quat_rotate_vec3(a, quat_rotate_vec3(b, v));
+        assert(vec3_close(quat_rotate_vec3(ab, v), sequential, 1e-5f));
+    }
+
+    /* Rotations around different axes do not commute */
+    quat x90 = quat_from_axis_angle(1.57079632679f, vec3_make(1.0f, 0.0f, 0.0f));
+    assert(!rotations_close(quat_mul(x90, z90), quat_mul(z90, x90), 1e-3f));
+}
+
+void test_quat_inverse()
+{
+    /* Conjugate negates the vector part */
+    quat q = quat_make(1.0f, 2.0f, 3.0f, 4.0f);
+    quat c = quat_conjugate(q);
+    assert(equal(c.x, -1.0f));
+    assert(equal(c.y, -2.0f));
+    assert(equal(c.z, -3.0f));
+    assert(equal(c.w, 4.0f));
+
+    /* For unit quaternions, the conjugate undoes the rotation */
+    quat id = QUAT_IDENTITY;
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        quat u = quat_test_case(i);
+        assert(rotations_close(quat_mul(u, quat_conjugate(u)), id, 1e-6f));
+        assert(rotations_close(quat_mul(quat_conjugate(u), u), id, 1e-6f));
+    }
+
+    /* The inverse also works for non-unit quaternions */
+    quat qi = quat_inverse(q);
+    assert(rotations_close(quat_mul(q, qi), id, 1e-6f));
+    assert(rotations_close(quat_mul(qi, q), id, 1e-6f));
+    assert(equal(qi.x, -1.0f / 30.0f));
+    assert(equal(qi.w, 4.0f / 30.0f));
+}
+
+void test_quat_interpolation()
+{
+    vec3 z = vec3_make(0.0f, 0.0f, 1.0f);
+    quat a = quat_from_axis_angle(0.0f, z);
+    quat b = quat_from_axis_angle(1.57079632679f, z);
+
+    /* Endpoints */
+    assert(rotations_close(quat_slerp(a, b, 0.0f), a, 1e-6f));
+    assert(rotations_close(quat_slerp(a, b, 1.0f), b, 1e-6f));
+    assert(rotations_close(quat_nlerp(a, b, 0.0f), a, 1e-6f));
+    assert(rotations_close(quat_nlerp(a, b, 1.0f), b, 1e-6f));
+
+    /* Slerp has constant angular speed: t = 0.25 of 90 degrees is 22.5 */
+    quat quarter = quat_from_axis_angle(0.39269908f, z);
+    assert(rotations_close(quat_slerp(a, b, 0.25f), quarter, 1e-6f));
+
+    /* Nlerp does not, but agrees with slerp halfway and stays unit length */
+    quat half = quat_from_axis_angle(0.78539816f, z);
+    assert(rotations_close(quat_slerp(a, b, 0.5f), half, 1e-6f));
+    assert(rotations_close(quat_nlerp(a, b, 0.5f), half, 1e-6f));
+    assert(!rotations_close(quat_nlerp(a, b, 0.25f), quarter, 1e-4f));
+    assert(fabsf(quat_norm(quat_nlerp(a, b, 0.25f)) - 1.0f) < 1e-6f);
+
+    /* Shortest path: -b is the same rotation as b, so interpolating towards it
+     * gives the same result, rather than going the long way around */
+    quat neg_b = quat_make(-b.x, -b.y, -b.z, -b.w);
+    assert(rotations_close(quat_slerp(a, neg_b, 0.25f), quarter, 1e-6f));
+    assert(rotations_close(quat_nlerp(a, neg_b, 0.5f), half, 1e-6f));
+
+    /* Nearly parallel rotations fall back to nlerp and stay finite */
+    quat c = quat_from_axis_angle(1e-4f, z);
+    quat mid = quat_slerp(a, c, 0.5f);
+    assert(rotations_close(mid, quat_from_axis_angle(5e-5f, z), 1e-6f));
+    assert(fabsf(quat_norm(mid) - 1.0f) < 1e-6f);
+
+    /* Identical rotations */
+    quat same = quat_slerp(b, b, 0.3f);
+    assert(rotations_close(same, b, 1e-6f));
+
+    /* Interpolation between general rotations stays unit length */
+    for (int i = 0; i < QUAT_TEST_CASES; i++) {
+        quat p = quat_test_case(i);
+        quat r = quat_test_case((i + 1) % QUAT_TEST_CASES);
+        for (int k = 0; k <= 10; k++) {
+            float t = (float)k / 10.0f;
+            assert(fabsf(quat_norm(quat_slerp(p, r, t)) - 1.0f) < 1e-5f);
+            assert(fabsf(quat_norm(quat_nlerp(p, r, t)) - 1.0f) < 1e-5f);
+        }
+    }
+}
+
 int main()
 {
     printf("Testing vm_add()\n");
@@ -693,6 +931,24 @@ int main()
 
     printf("Testing mat4_try_inverse()\n");
     test_mat4_try_inverse();
+
+    printf("Testing quaternion basics\n");
+    test_quat_basic();
+
+    printf("Testing mat4_from_quat()\n");
+    test_quat_to_mat4();
+
+    printf("Testing quat_rotate_vec3()\n");
+    test_quat_rotate_vec3();
+
+    printf("Testing quat_mul()\n");
+    test_quat_mul();
+
+    printf("Testing quat_conjugate() and quat_inverse()\n");
+    test_quat_inverse();
+
+    printf("Testing quat_slerp() and quat_nlerp()\n");
+    test_quat_interpolation();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
     return 0;

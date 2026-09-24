@@ -89,6 +89,17 @@ typedef ALIGN(16) union {
     float array[16];
 } mat4;
 
+/* Rotation quaternion, stored as (x, y, z, w) with w as the scalar part. The
+ * layout matches vec4, glTF and GLSL. See the quaternion section below for the
+ * conventions. */
+typedef ALIGN(16) union {
+    struct {
+        float x, y, z, w;
+    };
+    float array[4];
+    __m128 sse;
+} quat;
+
 /* Tightly packed storage types (8 and 12 bytes). Arrays of these match the GPU
  * vertex formats R32G32_SFLOAT and R32G32B32_SFLOAT. Convert to vec2/vec3 with
  * vec2_unpack()/vec3_unpack() to do math, and back with vec2_pack()/vec3_pack()
@@ -148,7 +159,8 @@ _Static_assert(sizeof(vec3_packed) == 12, "VECMAT: vec3_packed must be 12 bytes"
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_dot, default: vec2_dot),                \
         vec3: _Generic((b), vec3: vec3_dot, default: vec3_dot),                \
-        vec4: _Generic((b), vec4: vec4_dot, default: vec4_dot))(a, b)
+        vec4: _Generic((b), vec4: vec4_dot, default: vec4_dot),                \
+        quat: _Generic((b), quat: quat_dot, default: quat_dot))(a, b)
 
 /* Cross multiplication of two vec3 */
 #define vm_cross(a, b)                                                         \
@@ -156,14 +168,19 @@ _Static_assert(sizeof(vec3_packed) == 12, "VECMAT: vec3_packed must be 12 bytes"
 
 /* Calculate norm of a generic type */
 #define vm_norm(a)                                                             \
-    _Generic((a), vec2: vec2_norm, vec3: vec3_norm, vec4: vec4_norm)(a)
+    _Generic((a),                                                              \
+        vec2: vec2_norm,                                                       \
+        vec3: vec3_norm,                                                       \
+        vec4: vec4_norm,                                                       \
+        quat: quat_norm)(a)
 
 /* Calculate normalized vector with same direction */
 #define vm_normalize(a)                                                        \
     _Generic((a),                                                              \
         vec2: vec2_normalize,                                                  \
         vec3: vec3_normalize,                                                  \
-        vec4: vec4_normalize)(a)
+        vec4: vec4_normalize,                                                  \
+        quat: quat_normalize)(a)
 
 #endif /* VECMAT_USE_GENERICS */
 
@@ -177,6 +194,12 @@ _Static_assert(sizeof(vec3_packed) == 12, "VECMAT: vec3_packed must be 12 bytes"
             {0.0f, 0.0f, 1.0f, 0.0f},                                          \
             {0.0f, 0.0f, 0.0f, 1.0f},                                          \
         },                                                                     \
+    }
+
+#define QUAT_IDENTITY                                                          \
+    (quat)                                                                     \
+    {                                                                          \
+        {0.0f, 0.0f, 0.0f, 1.0f}                                               \
     }
 
 
@@ -640,6 +663,160 @@ static inline vec3 vec3_rotate(vec3 v, float angle, vec3 axis)
     vec3 t = vec3_cross(vec3_scale(2.0f, q), v);
     return vec3_add(vec3_add(v, vec3_scale(cosf(angle / 2.0f), t)),
                     vec3_cross(q, t));
+}
+
+
+/* Quaternions
+ *
+ * Conventions:
+ *  - Hamilton quaternions (i^2 = j^2 = k^2 = ijk = -1), stored as (x, y, z, w)
+ *    with w as the scalar part.
+ *  - Rotations are active and right-handed, the same as mat4_trs_rotate().
+ *  - quat_mul(a, b) applies b first and then a, the same as mat4_mul().
+ *  - Functions that rotate assume unit quaternions. Renormalize with
+ *    quat_normalize() after long chains of multiplications.
+ *  - q and -q represent the same rotation.
+ */
+
+/* Create a quaternion from its components, in storage order */
+static inline quat quat_make(float x, float y, float z, float w)
+{
+    return (quat){.sse = _mm_set_ps(w, z, y, x)};
+}
+
+/* Unit quaternion rotating angle radians around axis, which must be non-zero */
+static inline quat quat_from_axis_angle(float angle, vec3 axis)
+{
+    axis = vec3_normalize(axis);
+    float s = sinf(angle / 2.0f);
+    return quat_make(s * axis.x, s * axis.y, s * axis.z, cosf(angle / 2.0f));
+}
+
+
+/* Quaternion multiplication, the rotation b followed by a */
+static inline quat quat_mul(quat a, quat b)
+{
+    /* a * b = aw * (bx,  by,  bz, bw) + ax * ( bw, -bz,  by, -bx)
+     *       + ay * (bz,  bw, -bx, -by) + az * (-by,  bx,  bw, -bz)
+     * The signs are flipped with xor masks. They are built from integer bits,
+     * as -ffast-math may turn a -0.0f constant into 0.0f and break the mask. */
+    static const union {
+        unsigned int bits[3][4];
+        __m128 sse[3];
+    } signs = {{
+        {0, 0x80000000u, 0, 0x80000000u},
+        {0, 0, 0x80000000u, 0x80000000u},
+        {0x80000000u, 0, 0, 0x80000000u},
+    }};
+    __m128 ax = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(0, 0, 0, 0));
+    __m128 ay = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(1, 1, 1, 1));
+    __m128 az = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(2, 2, 2, 2));
+    __m128 aw = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(3, 3, 3, 3));
+    __m128 b_wzyx = _mm_shuffle_ps(b.sse, b.sse, _MM_SHUFFLE(0, 1, 2, 3));
+    __m128 b_zwxy = _mm_shuffle_ps(b.sse, b.sse, _MM_SHUFFLE(1, 0, 3, 2));
+    __m128 b_yxwz = _mm_shuffle_ps(b.sse, b.sse, _MM_SHUFFLE(2, 3, 0, 1));
+    __m128 tw = _mm_mul_ps(aw, b.sse);
+    __m128 tx = _mm_xor_ps(_mm_mul_ps(ax, b_wzyx), signs.sse[0]);
+    __m128 ty = _mm_xor_ps(_mm_mul_ps(ay, b_zwxy), signs.sse[1]);
+    __m128 tz = _mm_xor_ps(_mm_mul_ps(az, b_yxwz), signs.sse[2]);
+    return (quat){.sse = _mm_add_ps(_mm_add_ps(tw, tx), _mm_add_ps(ty, tz))};
+}
+
+
+/* Dot product of two quaternions */
+static inline float quat_dot(quat a, quat b)
+{
+    return vec4_dot((vec4){.sse = a.sse}, (vec4){.sse = b.sse});
+}
+
+/* Calculate the norm of a quaternion */
+static inline float quat_norm(quat q)
+{
+    return sqrtf(quat_dot(q, q));
+}
+
+/* Normalization of a quaternion */
+static inline quat quat_normalize(quat q)
+{
+    return (quat){.sse = vec4_normalize((vec4){.sse = q.sse}).sse};
+}
+
+
+/* Conjugate of a quaternion, which is the inverse of a unit quaternion */
+static inline quat quat_conjugate(quat q)
+{
+    __m128 signs = _mm_set_ps(1.0f, -1.0f, -1.0f, -1.0f);
+    return (quat){.sse = _mm_mul_ps(q.sse, signs)};
+}
+
+/* Inverse of a quaternion, which must be non-zero */
+static inline quat quat_inverse(quat q)
+{
+    __m128 n = _mm_set_ps1(quat_dot(q, q));
+    return (quat){.sse = _mm_div_ps(quat_conjugate(q).sse, n)};
+}
+
+
+/* Rotate a vec3 by a unit quaternion */
+static inline vec3 quat_rotate_vec3(quat q, vec3 v)
+{
+    vec3 u = vec3_make(q.x, q.y, q.z);
+    vec3 t = vec3_scale(2.0f, vec3_cross(u, v));
+    return vec3_add(vec3_add(v, vec3_scale(q.w, t)), vec3_cross(u, t));
+}
+
+
+/* Rotation matrix of a unit quaternion */
+static inline mat4 mat4_from_quat(quat q)
+{
+    float xx = q.x * q.x, yy = q.y * q.y, zz = q.z * q.z;
+    float xy = q.x * q.y, xz = q.x * q.z, yz = q.y * q.z;
+    float wx = q.w * q.x, wy = q.w * q.y, wz = q.w * q.z;
+    return (mat4){{
+        {1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz), 2.0f * (xz - wy), 0.0f},
+        {2.0f * (xy - wz), 1.0f - 2.0f * (xx + zz), 2.0f * (yz + wx), 0.0f},
+        {2.0f * (xz + wy), 2.0f * (yz - wx), 1.0f - 2.0f * (xx + yy), 0.0f},
+        {0.0f, 0.0f, 0.0f, 1.0f},
+    }};
+}
+
+
+/* Normalized linear interpolation between two unit quaternions along the
+ * shortest path. Cheaper than quat_slerp(), but the angular speed is not
+ * constant over t. */
+static inline quat quat_nlerp(quat a, quat b, float t)
+{
+    /* q and -q are the same rotation, pick the one closest to a */
+    float sign = quat_dot(a, b) < 0.0f ? -1.0f : 1.0f;
+    __m128 wa = _mm_set_ps1(1.0f - t);
+    __m128 wb = _mm_set_ps1(sign * t);
+    quat q = {.sse = _mm_add_ps(_mm_mul_ps(wa, a.sse), _mm_mul_ps(wb, b.sse))};
+    return quat_normalize(q);
+}
+
+/* Spherical linear interpolation between two unit quaternions along the
+ * shortest path, with constant angular speed over t */
+static inline quat quat_slerp(quat a, quat b, float t)
+{
+    /* q and -q are the same rotation, pick the one closest to a */
+    float d = quat_dot(a, b);
+    float sign = 1.0f;
+    if (d < 0.0f) {
+        d = -d;
+        sign = -1.0f;
+    }
+
+    /* Nearly parallel: sin(theta) is close to zero, fall back to nlerp */
+    if (d > 0.9995f) {
+        return quat_nlerp(a, b, t);
+    }
+
+    float theta = acosf(d);
+    float s = sinf(theta);
+    __m128 wa = _mm_set_ps1(sinf((1.0f - t) * theta) / s);
+    __m128 wb = _mm_set_ps1(sign * sinf(t * theta) / s);
+    return (quat){
+        .sse = _mm_add_ps(_mm_mul_ps(wa, a.sse), _mm_mul_ps(wb, b.sse))};
 }
 
 

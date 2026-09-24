@@ -59,6 +59,22 @@ This allows to use the same macro for different types:
     vec3 g3 = vm_add(v3, u3);
 ```
 
+Rotations can also be stored as quaternions with the `quat` type, stored as `(x, y, z, w)` with `w` as the scalar part.
+Quaternions follow the same conventions as the matrices: rotations are right-handed, and `quat_mul(a, b)` applies `b` first and then `a`, just like `mat4_mul()`.
+
+```C
+    /* 90 degrees around the z-axis, then 45 degrees around the x-axis */
+    quat qz = quat_from_axis_angle(1.5708f, vec3_make(0.0f, 0.0f, 1.0f));
+    quat qx = quat_from_axis_angle(0.7854f, vec3_make(1.0f, 0.0f, 0.0f));
+    quat q = quat_mul(qx, qz);
+
+    vec3 v = quat_rotate_vec3(q, vec3_make(1.0f, 0.0f, 0.0f));
+    mat4 m = mat4_from_quat(q);
+
+    /* Interpolate along the shortest path */
+    quat halfway = quat_slerp(QUAT_IDENTITY, q, 0.5f);
+```
+
 The library also contains some functions for creating translate-rotate-scale transformations that are commonly used in computer graphics.
 They are prefixed with `mat4_trs_*`.
 
