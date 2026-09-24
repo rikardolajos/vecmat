@@ -387,6 +387,59 @@ void test_normalize()
     assert(equal(vm_norm(g4), vm_norm(r4)));
 }
 
+void test_packed()
+{
+    /* Sizes and array strides match the GPU vertex formats */
+    vec2_packed a2[2];
+    vec3_packed a3[2];
+    assert(sizeof(vec2_packed) == 8);
+    assert(sizeof(vec3_packed) == 12);
+    assert((char *)&a2[1] - (char *)&a2[0] == 8);
+    assert((char *)&a3[1] - (char *)&a3[0] == 12);
+
+    /* Vector 2 pack */
+    vec2 v2 = vec2_make(1.0f, 2.0f);
+    vec2_packed p2 = vec2_pack(v2);
+    assert(equal(p2.x, 1.0f));
+    assert(equal(p2.y, 2.0f));
+
+    /* Vector 2 unpack, with the unused lanes set to zero */
+    vec2 u2 = vec2_unpack(p2);
+    assert(equal(u2.x, 1.0f));
+    assert(equal(u2.y, 2.0f));
+    assert(u2.array[2] == 0.0f);
+    assert(u2.array[3] == 0.0f);
+
+    /* Vector 3 pack */
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3_packed p3 = vec3_pack(v3);
+    assert(equal(p3.x, 1.0f));
+    assert(equal(p3.y, 2.0f));
+    assert(equal(p3.z, 3.0f));
+
+    /* Vector 3 unpack, with the unused lane set to zero */
+    vec3 u3 = vec3_unpack(p3);
+    assert(equal(u3.x, 1.0f));
+    assert(equal(u3.y, 2.0f));
+    assert(equal(u3.z, 3.0f));
+    assert(u3.array[3] == 0.0f);
+
+    /* Packed arrays are contiguous floats */
+    a3[0] = vec3_pack(vec3_make(1.0f, 2.0f, 3.0f));
+    a3[1] = vec3_pack(vec3_make(4.0f, 5.0f, 6.0f));
+    float *f = a3[0].array;
+    for (int i = 0; i < 6; i++) {
+        assert(equal(f[i], (float)(i + 1)));
+    }
+
+    /* Math on unpacked values survives a round trip */
+    vec3 r3 = vec3_add(vec3_unpack(a3[0]), vec3_unpack(a3[1]));
+    vec3_packed q3 = vec3_pack(r3);
+    assert(equal(q3.x, 5.0f));
+    assert(equal(q3.y, 7.0f));
+    assert(equal(q3.z, 9.0f));
+}
+
 int main()
 {
     printf("Testing vm_add()\n");
@@ -409,6 +462,9 @@ int main()
 
     printf("Testing vm_normalize()\n");
     test_normalize();
+
+    printf("Testing packed types\n");
+    test_packed();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
     return 0;
