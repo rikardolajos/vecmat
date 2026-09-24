@@ -349,25 +349,35 @@ static inline mat4 mat4_scale(float f, mat4 m)
 }
 
 
+/* Matrix-vector multiplication */
+static inline vec4 mat4_mul_vec4(mat4 m, vec4 v)
+{
+    __m128 x = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(0, 0, 0, 0));
+    __m128 y = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(1, 1, 1, 1));
+    __m128 z = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(2, 2, 2, 2));
+    __m128 w = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(3, 3, 3, 3));
+    __m128 xy =
+        _mm_add_ps(_mm_mul_ps(m.cols[0].sse, x), _mm_mul_ps(m.cols[1].sse, y));
+    __m128 zw =
+        _mm_add_ps(_mm_mul_ps(m.cols[2].sse, z), _mm_mul_ps(m.cols[3].sse, w));
+    return (vec4){.sse = _mm_add_ps(xy, zw)};
+}
+
+
 /* Matrix multiplication */
 static inline mat4 mat4_mul(mat4 m, mat4 n)
 {
     mat4 res;
-
-    mat4 mt = mat4_transpose(m);
-
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            res.cr[i][j] = vec4_dot(mt.cols[i], n.cols[j]);
-        }
-    }
-
-    return mat4_transpose(res);
+    res.cols[0] = mat4_mul_vec4(m, n.cols[0]);
+    res.cols[1] = mat4_mul_vec4(m, n.cols[1]);
+    res.cols[2] = mat4_mul_vec4(m, n.cols[2]);
+    res.cols[3] = mat4_mul_vec4(m, n.cols[3]);
+    return res;
 }
 
 
 /* Adjugate matrix, with the determinant of m written to det */
-static inline mat4 mat4_adjugate(mat4 m, float *det)
+static inline mat4 mat4_adjugate(mat4 m, float* det)
 {
     mat4 a;
 
@@ -500,7 +510,7 @@ static inline mat4 mat4_inverse(mat4 m)
 
 
 /* Matrix inverse, returns false and leaves res untouched if m is singular */
-static inline bool mat4_try_inverse(mat4 m, mat4 *res)
+static inline bool mat4_try_inverse(mat4 m, mat4* res)
 {
     float det;
     mat4 a = mat4_adjugate(m, &det);
