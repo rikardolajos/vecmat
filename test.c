@@ -13,6 +13,17 @@ bool equal(float a, float b)
     return fabsf(a - b) < EPSILON;
 }
 
+/* Compare all elements of two matrices with the given tolerance */
+bool matrices_close(mat4 a, mat4 b, float tolerance)
+{
+    for (int i = 0; i < 16; i++) {
+        if (fabsf(a.array[i] - b.array[i]) >= tolerance) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void test_add()
 {
     /* Vector 2 */
@@ -520,6 +531,111 @@ void test_mat4_mul_vec4()
     assert(equal(x.w, 0.0f));
 }
 
+void test_mat4_mul()
+{
+    /* Columns (1, 2, 3, 4), (5, 6, 7, 8), (9, 10, 11, 12), (13, 14, 15, 16) */
+    mat4 m = {{
+        vec4_make(1.0f, 2.0f, 3.0f, 4.0f),
+        vec4_make(5.0f, 6.0f, 7.0f, 8.0f),
+        vec4_make(9.0f, 10.0f, 11.0f, 12.0f),
+        vec4_make(13.0f, 14.0f, 15.0f, 16.0f),
+    }};
+
+    /* Identity on either side leaves the matrix unchanged */
+    assert(matrices_close(mat4_mul(MAT4_IDENTITY, m), m, EPSILON));
+    assert(matrices_close(mat4_mul(m, MAT4_IDENTITY), m, EPSILON));
+
+    /* Column j of the result is m times column j of n */
+    mat4 n = {{
+        vec4_make(1.0f, 0.0f, 0.0f, 0.0f),
+        vec4_make(0.0f, 2.0f, 0.0f, 0.0f),
+        vec4_make(0.0f, 0.0f, 3.0f, 0.0f),
+        vec4_make(1.0f, 1.0f, 1.0f, 1.0f),
+    }};
+    mat4 expected = {{
+        vec4_make(1.0f, 2.0f, 3.0f, 4.0f),
+        vec4_make(10.0f, 12.0f, 14.0f, 16.0f),
+        vec4_make(27.0f, 30.0f, 33.0f, 36.0f),
+        vec4_make(28.0f, 32.0f, 36.0f, 40.0f),
+    }};
+    assert(matrices_close(mat4_mul(m, n), expected, EPSILON));
+
+    /* The right-hand matrix is applied first: T * S scales, then translates */
+    mat4 t = mat4_trs_translate(vec3_make(1.0f, 2.0f, 3.0f));
+    mat4 s = mat4_trs_scale(vec3_make(2.0f, 2.0f, 2.0f));
+    vec4 p = vec4_make(1.0f, 1.0f, 1.0f, 1.0f);
+
+    vec4 ts = mat4_mul_vec4(mat4_mul(t, s), p);
+    assert(equal(ts.x, 3.0f));
+    assert(equal(ts.y, 4.0f));
+    assert(equal(ts.z, 5.0f));
+    assert(equal(ts.w, 1.0f));
+
+    vec4 st = mat4_mul_vec4(mat4_mul(s, t), p);
+    assert(equal(st.x, 4.0f));
+    assert(equal(st.y, 6.0f));
+    assert(equal(st.z, 8.0f));
+    assert(equal(st.w, 1.0f));
+}
+
+void test_mat4_inverse()
+{
+    /* Identity is its own inverse */
+    assert(matrices_close(mat4_inverse(MAT4_IDENTITY), MAT4_IDENTITY, EPSILON));
+
+    /* Inverse of a translation translates back */
+    mat4 t = mat4_trs_translate(vec3_make(1.0f, 2.0f, 3.0f));
+    mat4 ti = mat4_trs_translate(vec3_make(-1.0f, -2.0f, -3.0f));
+    assert(matrices_close(mat4_inverse(t), ti, EPSILON));
+
+    /* Inverse of a scale divides */
+    mat4 s = mat4_trs_scale(vec3_make(2.0f, 4.0f, 8.0f));
+    mat4 si = mat4_trs_scale(vec3_make(0.5f, 0.25f, 0.125f));
+    assert(matrices_close(mat4_inverse(s), si, EPSILON));
+
+    /* A general transform times its inverse gives identity, on either side.
+     * Rounding in the 4x4 inverse needs a looser tolerance than EPSILON. */
+    mat4 r = mat4_trs_rotate(0.7f, vec3_make(1.0f, 1.0f, 0.0f));
+    mat4 m = mat4_mul(t, mat4_mul(r, mat4_trs_scale(vec3_make(2.0f, 3.0f, 4.0f))));
+    mat4 mi = mat4_inverse(m);
+    assert(matrices_close(mat4_mul(m, mi), MAT4_IDENTITY, 1e-5f));
+    assert(matrices_close(mat4_mul(mi, m), MAT4_IDENTITY, 1e-5f));
+}
+
+void test_mat4_try_inverse()
+{
+    /* Invertible: succeeds and matches mat4_inverse */
+    mat4 m = mat4_mul(mat4_trs_translate(vec3_make(1.0f, 2.0f, 3.0f)),
+                      mat4_trs_rotate(0.7f, vec3_make(0.0f, 1.0f, 0.0f)));
+    mat4 res;
+    assert(mat4_try_inverse(m, &res));
+    assert(matrices_close(res, mat4_inverse(m), EPSILON));
+    assert(matrices_close(mat4_mul(m, res), MAT4_IDENTITY, 1e-5f));
+
+    /* Singular matrices: fails and leaves the result untouched */
+    mat4 zero = {0};
+
+    mat4 zero_col = MAT4_IDENTITY;
+    zero_col.cols[2] = vec4_make(0.0f, 0.0f, 0.0f, 0.0f);
+
+    mat4 dup_col = MAT4_IDENTITY;
+    dup_col.cols[1] = dup_col.cols[0];
+
+    /* Invertible in theory, but the determinant (1e-48) underflows to zero */
+    mat4 tiny = mat4_scale(1e-12f, MAT4_IDENTITY);
+
+    /* The determinant (1e-39) is not zero, but its reciprocal overflows */
+    mat4 subnormal = MAT4_IDENTITY;
+    subnormal.cr[3][3] = 1e-39f;
+
+    mat4 singular[] = {zero, zero_col, dup_col, tiny, subnormal};
+    for (int i = 0; i < 5; i++) {
+        mat4 untouched = m;
+        assert(!mat4_try_inverse(singular[i], &untouched));
+        assert(matrices_close(untouched, m, EPSILON));
+    }
+}
+
 int main()
 {
     printf("Testing vm_add()\n");
@@ -551,6 +667,15 @@ int main()
 
     printf("Testing mat4_mul_vec4()\n");
     test_mat4_mul_vec4();
+
+    printf("Testing mat4_mul()\n");
+    test_mat4_mul();
+
+    printf("Testing mat4_inverse()\n");
+    test_mat4_inverse();
+
+    printf("Testing mat4_try_inverse()\n");
+    test_mat4_try_inverse();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
     return 0;
