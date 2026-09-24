@@ -27,11 +27,19 @@
 /* GCC and CLANG */
 #if defined(__GNUC__) || defined(__clang__)
 
-#include <x86intrin.h>
+#if !defined(__SSE__)
+#error "VECMAT: SSE is required"
+#endif
+
+#include <immintrin.h>
 #define ALIGN(x) __attribute__((aligned(x)))
 
 /* MSVC */
 #elif defined(_MSC_VER)
+
+#if !defined(_M_X64) && !(defined(_M_IX86_FP) && _M_IX86_FP >= 1)
+#error "VECMAT: SSE is required"
+#endif
 
 #include <intrin.h>
 #define ALIGN(x) __declspec(align(x))
@@ -143,6 +151,25 @@ typedef ALIGN(16) union {
     }
 
 
+/* Create a vec2, with the unused lanes set to zero */
+static inline vec2 vec2_make(float x, float y)
+{
+    return (vec2){.sse = _mm_set_ps(0.0f, 0.0f, y, x)};
+}
+
+/* Create a vec3, with the unused lane set to zero */
+static inline vec3 vec3_make(float x, float y, float z)
+{
+    return (vec3){.sse = _mm_set_ps(0.0f, z, y, x)};
+}
+
+/* Create a vec4 */
+static inline vec4 vec4_make(float x, float y, float z, float w)
+{
+    return (vec4){.sse = _mm_set_ps(w, z, y, x)};
+}
+
+
 /* Addition for vec2 */
 static inline vec2 vec2_add(vec2 u, vec2 v)
 {
@@ -203,25 +230,27 @@ static inline vec4 vec4_scale(float f, vec4 u)
 /* Dot multiplication for vec2 */
 static inline float vec2_dot(vec2 u, vec2 v)
 {
-    vec2 f;
-    _mm_store_ps1(f.array, _mm_dp_ps(u.sse, v.sse, 0x31));
-    return f.x;
+    __m128 p = _mm_mul_ps(u.sse, v.sse);
+    __m128 y = _mm_shuffle_ps(p, p, _MM_SHUFFLE(1, 1, 1, 1));
+    return _mm_cvtss_f32(_mm_add_ss(p, y));
 }
 
 /* Dot multiplication for vec3 */
 static inline float vec3_dot(vec3 u, vec3 v)
 {
-    vec3 f;
-    _mm_store_ps1(f.array, _mm_dp_ps(u.sse, v.sse, 0x71));
-    return f.x;
+    __m128 p = _mm_mul_ps(u.sse, v.sse);
+    __m128 y = _mm_shuffle_ps(p, p, _MM_SHUFFLE(1, 1, 1, 1));
+    __m128 z = _mm_movehl_ps(p, p);
+    return _mm_cvtss_f32(_mm_add_ss(_mm_add_ss(p, y), z));
 }
 
 /* Dot multiplication for vec4 */
 static inline float vec4_dot(vec4 u, vec4 v)
 {
-    vec4 f;
-    _mm_store_ps1(f.array, _mm_dp_ps(u.sse, v.sse, 0xf1));
-    return f.x;
+    __m128 p = _mm_mul_ps(u.sse, v.sse);
+    __m128 s = _mm_add_ps(p, _mm_movehl_ps(p, p));
+    __m128 t = _mm_shuffle_ps(s, s, _MM_SHUFFLE(1, 1, 1, 1));
+    return _mm_cvtss_f32(_mm_add_ss(s, t));
 }
 
 
@@ -526,11 +555,7 @@ static inline mat4 mat4_trs_translate(vec3 v1)
 static inline vec3 vec3_rotate(vec3 v, vec3 axis, float angle)
 {
     axis = vec3_normalize(axis);
-    vec3 q = {
-        sinf(angle / 2.0f) * axis.x,
-        sinf(angle / 2.0f) * axis.y,
-        sinf(angle / 2.0f) * axis.z,
-    };
+    vec3 q = vec3_scale(sinf(angle / 2.0f), axis);
     vec3 t = vec3_cross(vec3_scale(2.0f, q), v);
     return vec3_add(vec3_add(v, vec3_scale(cosf(angle / 2.0f), t)),
                     vec3_cross(q, t));

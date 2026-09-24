@@ -7,8 +7,11 @@ It is written in C11 and uses intrinsics internally to vectorize the execution.
 
 Copy the header file `vecmat.h` to your repository and include it in the files where you want to use it.
 The header defines all the functions as `static inline` and therefore do not need to define the implementation anywhere, like some other header-only libraries do.
+It only requires SSE, which is always available on x86-64, so no extra compiler flags are needed.
 
 The library has support for `vec2`, `vec3`, `vec4`, and `mat4` (4-by-4 matrices) with single floating point precision (32-bit).
+All vector types are stored in a 16-byte SIMD register, so `vec2` and `vec3` have unused lanes.
+Prefer creating them with `vec2_make()` and `vec3_make()`, which set the unused lanes to zero; brace initialization like `vec3 v = {1, 2, 3};` leaves them unspecified.
 The library features some vector and matrix manipulation functions that you might expect like adding, subtracting, dot-product and transpose.
 For a full reference, check the header file and the `test.c` file.
 
@@ -24,16 +27,16 @@ This allows to use the same macro for different types:
 
 ```C
     /* Adding two vec2 using the vec2_add */
-    vec2 v2 = {1.0f, 2.0f};
-    vec2 u2 = {3.0f, 4.0f};
+    vec2 v2 = vec2_make(1.0f, 2.0f);
+    vec2 u2 = vec2_make(3.0f, 4.0f);
     vec2 r2 = vec2_add(v2, u2);
 
     /* Adding using the generic add macro */
     vec2 g2 = add(v2, u2);
 
     /* Adding two vec3 using vec3_add */
-    vec3 v3 = {1.0f, 2.0f, 3.0f};
-    vec3 u3 = {4.0f, 5.0f, 6.0f};
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3 u3 = vec3_make(4.0f, 5.0f, 6.0f);
     vec3 r3 = vec3_add(v3, u3);
 
     /* Or add using the generic add macro */

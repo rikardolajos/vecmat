@@ -16,8 +16,8 @@ bool equal(float a, float b)
 void test_add()
 {
     /* Vector 2 */
-    vec2 v2 = {1.0f, 2.0f};
-    vec2 u2 = {3.0f, 4.0f};
+    vec2 v2 = vec2_make(1.0f, 2.0f);
+    vec2 u2 = vec2_make(3.0f, 4.0f);
     vec2 r2 = vec2_add(v2, u2);
 
     assert(equal(r2.x, 4.0f));
@@ -29,8 +29,8 @@ void test_add()
     assert(equal(g2.y, r2.y));
 
     /* Vector 3 */
-    vec3 v3 = {1.0f, 2.0f, 3.0f};
-    vec3 u3 = {4.0f, 5.0f, 6.0f};
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3 u3 = vec3_make(4.0f, 5.0f, 6.0f);
     vec3 r3 = vec3_add(v3, u3);
 
     assert(equal(r3.x, 5.0f));
@@ -44,8 +44,8 @@ void test_add()
     assert(equal(g3.z, r3.z));
 
     /* Vector 4 */
-    vec4 v4 = {1.0f, 2.0f, 3.0f, 4.0f};
-    vec4 u4 = {5.0f, 6.0f, 7.0f, 8.0f};
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
+    vec4 u4 = vec4_make(5.0f, 6.0f, 7.0f, 8.0f);
     vec4 r4 = vec4_add(v4, u4);
 
     assert(equal(r4.x, 6.0f));
@@ -104,8 +104,8 @@ void test_add()
 void test_sub()
 {
     /* Vector 2 */
-    vec2 v2 = {1.0f, 2.0f};
-    vec2 u2 = {3.0f, 4.0f};
+    vec2 v2 = vec2_make(1.0f, 2.0f);
+    vec2 u2 = vec2_make(3.0f, 4.0f);
     vec2 r2 = vec2_sub(v2, u2);
 
     assert(equal(r2.x, -2.0f));
@@ -117,8 +117,8 @@ void test_sub()
     assert(equal(g2.y, r2.y));
 
     /* Vector 3 */
-    vec3 v3 = {1.0f, 2.0f, 3.0f};
-    vec3 u3 = {4.0f, 5.0f, 6.0f};
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3 u3 = vec3_make(4.0f, 5.0f, 6.0f);
     vec3 r3 = vec3_sub(v3, u3);
 
     assert(equal(r3.x, -3.0f));
@@ -132,8 +132,8 @@ void test_sub()
     assert(equal(g3.z, r3.z));
 
     /* Vector 4 */
-    vec4 v4 = {1.0f, 2.0f, 3.0f, 4.0f};
-    vec4 u4 = {5.0f, 6.0f, 7.0f, 8.0f};
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
+    vec4 u4 = vec4_make(5.0f, 6.0f, 7.0f, 8.0f);
     vec4 r4 = vec4_sub(v4, u4);
 
     assert(equal(r4.x, -4.0f));
@@ -194,7 +194,7 @@ void test_scale()
     float s = 2.0f;
 
     /* Vector 2 */
-    vec2 v2 = {1.0f, 2.0f};
+    vec2 v2 = vec2_make(1.0f, 2.0f);
     vec2 r2 = vec2_scale(s, v2);
 
     assert(equal(r2.x, 2.0f));
@@ -206,7 +206,7 @@ void test_scale()
     assert(equal(g2.y, r2.y));
 
     /* Vector 3 */
-    vec3 v3 = {1.0f, 2.0f, 3.0f};
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
     vec3 r3 = vec3_scale(s, v3);
 
     assert(equal(r3.x, 2.0f));
@@ -220,7 +220,7 @@ void test_scale()
     assert(equal(g3.z, r3.z));
 
     /* Vector 4 */
-    vec4 v4 = {1.0f, 2.0f, 3.0f, 4.0f};
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
     vec4 r4 = vec4_scale(s, v4);
 
     assert(equal(r4.x, 2.0f));
@@ -278,8 +278,8 @@ void test_scale()
 void test_dot()
 {
     /* Vector 2 */
-    vec2 v2 = {1.0f, 2.0f};
-    vec2 u2 = {3.0f, 4.0f};
+    vec2 v2 = vec2_make(1.0f, 2.0f);
+    vec2 u2 = vec2_make(3.0f, 4.0f);
     float r2 = vec2_dot(v2, u2);
 
     assert(equal(r2, 11.0f));
@@ -289,8 +289,8 @@ void test_dot()
     assert(equal(g2, r2));
 
     /* Vector 3 */
-    vec3 v3 = {1.0f, 2.0f, 3.0f};
-    vec3 u3 = {4.0f, 5.0f, 6.0f};
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3 u3 = vec3_make(4.0f, 5.0f, 6.0f);
     float r3 = vec3_dot(v3, u3);
 
     assert(equal(r3, 32.0f));
@@ -300,8 +300,8 @@ void test_dot()
     assert(equal(g3, r3));
 
     /* Vector 4 */
-    vec4 v4 = {1.0f, 2.0f, 3.0f, 4.0f};
-    vec4 u4 = {5.0f, 6.0f, 7.0f, 8.0f};
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
+    vec4 u4 = vec4_make(5.0f, 6.0f, 7.0f, 8.0f);
     float r4 = vec4_dot(v4, u4);
 
     assert(equal(r4, 70.0f));
@@ -313,8 +313,8 @@ void test_dot()
 
 void test_cross()
 {
-    vec3 v3 = {1.0f, 0.0f, 0.0f};
-    vec3 u3 = {0.0f, 1.0f, 0.0f};
+    vec3 v3 = vec3_make(1.0f, 0.0f, 0.0f);
+    vec3 u3 = vec3_make(0.0f, 1.0f, 0.0f);
     vec3 r3 = vec3_cross(v3, u3);
 
     assert(equal(r3.x, 0.0f));
@@ -330,7 +330,7 @@ void test_cross()
 void test_norm()
 {
     /* Vector 2 */
-    vec2 v2 = {1.0f, 0.0f};
+    vec2 v2 = vec2_make(1.0f, 0.0f);
     float r2 = vec2_norm(v2);
     assert(equal(r2, 1.0f));
 
@@ -339,7 +339,7 @@ void test_norm()
     assert(equal(g2, r2));
 
     /* Vector 3 */
-    vec3 v3 = {1.0f, 0.0f, 0.0f};
+    vec3 v3 = vec3_make(1.0f, 0.0f, 0.0f);
     float r3 = vec3_norm(v3);
     assert(equal(r3, 1.0f));
 
@@ -348,7 +348,7 @@ void test_norm()
     assert(equal(g3, r3));
 
     /* Vector 4 */
-    vec4 v4 = {1.0f, 0.0f, 0.0f, 0.0f};
+    vec4 v4 = vec4_make(1.0f, 0.0f, 0.0f, 0.0f);
     float r4 = vec4_norm(v4);
     assert(equal(r4, 1.0f));
 
@@ -360,7 +360,7 @@ void test_norm()
 void test_normalize()
 {
     /* Vector 2 */
-    vec2 v2 = {1.0f, 2.0f};
+    vec2 v2 = vec2_make(1.0f, 2.0f);
     vec2 r2 = vec2_normalize(v2);
     assert(equal(norm(r2), 1.0f));
 
@@ -369,7 +369,7 @@ void test_normalize()
     assert(equal(norm(g2), norm(r2)));
 
     /* Vector 3 */
-    vec3 v3 = {1.0f, 2.0f, 3.0f};
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
     vec3 r3 = vec3_normalize(v3);
     assert(equal(norm(r3), 1.0f));
 
@@ -378,7 +378,7 @@ void test_normalize()
     assert(equal(norm(g3), norm(r3)));
 
     /* Vector 4 */
-    vec4 v4 = {1.0f, 2.0f, 3.0f, 4.0f};
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
     vec4 r4 = vec4_normalize(v4);
     assert(equal(norm(r4), 1.0f));
 
