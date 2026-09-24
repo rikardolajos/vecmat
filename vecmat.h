@@ -551,8 +551,8 @@ static inline mat4 mat4_lookat(vec3 pos, vec3 target, vec3 up)
 {
     vec3 f = vec3_normalize(vec3_sub(pos, target));
     vec3 u = vec3_normalize(up);
-    vec3 s = vec3_normalize(vec3_cross(f, u));
-    u = vec3_cross(s, f);
+    vec3 s = vec3_normalize(vec3_cross(u, f));
+    u = vec3_cross(f, s);
 
     return mat4_transpose((mat4){{{s.x, s.y, s.z, -vec3_dot(s, pos)},
                                   {u.x, u.y, u.z, -vec3_dot(u, pos)},
