@@ -5,7 +5,7 @@ It is written in C11 and uses intrinsics internally to vectorize the execution.
 
 ## Usage
 
-Copy the header file `vacmat.h` to your repository and include it in the files where you want to use it.
+Copy the header file `vecmat.h` to your repository and include it in the files where you want to use it.
 The header defines all the functions as `static inline` and therefore do not need to define the implementation anywhere, like some other header-only libraries do.
 
 The library has support for `vec2`, `vec3`, `vec4`, and `mat4` (4-by-4 matrices) with single floating point precision (32-bit).
