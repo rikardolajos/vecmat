@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <float.h>
 #include <math.h>
 #include <stdbool.h>
 
@@ -580,11 +581,14 @@ static inline bool mat4_try_inverse(mat4 m, mat4* res)
 {
     float det;
     mat4 a = mat4_adjugate(m, &det);
-    float inv_det = 1 / det;
-    if (!isfinite(inv_det)) {
+
+    /* Plain comparisons instead of isfinite(), which -ffast-math may remove.
+     * Written so that NaN also fails the check. */
+    float abs_det = fabsf(det);
+    if (!(abs_det >= FLT_MIN && abs_det <= FLT_MAX)) {
         return false;
     }
-    *res = mat4_scale(inv_det, a);
+    *res = mat4_scale(1 / det, a);
     return true;
 }
 

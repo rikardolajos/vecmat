@@ -634,6 +634,23 @@ void test_mat4_try_inverse()
         assert(!mat4_try_inverse(singular[i], &untouched));
         assert(matrices_close(untouched, m, EPSILON));
     }
+
+    /* NaN and infinity are undefined behavior under -ffast-math */
+#ifndef __FAST_MATH__
+    /* A NaN element makes the determinant NaN */
+    mat4 nan = MAT4_IDENTITY;
+    nan.cr[1][1] = NAN;
+
+    /* The determinant (1e40) overflows to infinity */
+    mat4 huge = mat4_scale(1e10f, MAT4_IDENTITY);
+
+    mat4 invalid[] = {nan, huge};
+    for (int i = 0; i < 2; i++) {
+        mat4 untouched = m;
+        assert(!mat4_try_inverse(invalid[i], &untouched));
+        assert(matrices_close(untouched, m, EPSILON));
+    }
+#endif
 }
 
 int main()
