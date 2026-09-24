@@ -112,7 +112,7 @@ void test_sub()
     assert(equal(r2.y, -2.0f));
 
     /* Vector 2 generic */
-    vec2 g2 = sub(v2, u2);
+    vec2 g2 = vm_sub(v2, u2);
     assert(equal(g2.x, r2.x));
     assert(equal(g2.y, r2.y));
 
@@ -285,7 +285,7 @@ void test_dot()
     assert(equal(r2, 11.0f));
 
     /* Vector 2 generic */
-    float g2 = dot(v2, u2);
+    float g2 = vm_dot(v2, u2);
     assert(equal(g2, r2));
 
     /* Vector 3 */
@@ -296,7 +296,7 @@ void test_dot()
     assert(equal(r3, 32.0f));
 
     /* Vector 3 generic */
-    float g3 = dot(v3, u3);
+    float g3 = vm_dot(v3, u3);
     assert(equal(g3, r3));
 
     /* Vector 4 */
@@ -307,7 +307,7 @@ void test_dot()
     assert(equal(r4, 70.0f));
 
     /* Vector 4 generic */
-    float g4 = dot(v4, u4);
+    float g4 = vm_dot(v4, u4);
     assert(equal(g4, r4));
 }
 
@@ -335,7 +335,7 @@ void test_norm()
     assert(equal(r2, 1.0f));
 
     /* Vector 2 generic */
-    float g2 = norm(v2);
+    float g2 = vm_norm(v2);
     assert(equal(g2, r2));
 
     /* Vector 3 */
@@ -344,7 +344,7 @@ void test_norm()
     assert(equal(r3, 1.0f));
 
     /* Vector 3 generic */
-    float g3 = norm(v3);
+    float g3 = vm_norm(v3);
     assert(equal(g3, r3));
 
     /* Vector 4 */
@@ -353,7 +353,7 @@ void test_norm()
     assert(equal(r4, 1.0f));
 
     /* Vector 4 generic */
-    float g4 = norm(v4);
+    float g4 = vm_norm(v4);
     assert(equal(g4, r4));
 }
 
@@ -362,52 +362,52 @@ void test_normalize()
     /* Vector 2 */
     vec2 v2 = vec2_make(1.0f, 2.0f);
     vec2 r2 = vec2_normalize(v2);
-    assert(equal(norm(r2), 1.0f));
+    assert(equal(vm_norm(r2), 1.0f));
 
     /* Vector 2 generic */
     vec2 g2 = vm_normalize(v2);
-    assert(equal(norm(g2), norm(r2)));
+    assert(equal(vm_norm(g2), vm_norm(r2)));
 
     /* Vector 3 */
     vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
     vec3 r3 = vec3_normalize(v3);
-    assert(equal(norm(r3), 1.0f));
+    assert(equal(vm_norm(r3), 1.0f));
 
     /* Vector 3 generic */
     vec3 g3 = vm_normalize(v3);
-    assert(equal(norm(g3), norm(r3)));
+    assert(equal(vm_norm(g3), vm_norm(r3)));
 
     /* Vector 4 */
     vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
     vec4 r4 = vec4_normalize(v4);
-    assert(equal(norm(r4), 1.0f));
+    assert(equal(vm_norm(r4), 1.0f));
 
     /* Vector 4 generic */
     vec4 g4 = vm_normalize(v4);
-    assert(equal(norm(g4), norm(r4)));
+    assert(equal(vm_norm(g4), vm_norm(r4)));
 }
 
 int main()
 {
-    printf("Testing add()\n");
+    printf("Testing vm_add()\n");
     test_add();
 
-    printf("Testing sub()\n");
+    printf("Testing vm_sub()\n");
     test_sub();
 
-    printf("Testing scale()\n");
+    printf("Testing vm_scale()\n");
     test_scale();
 
-    printf("Testing dot()\n");
+    printf("Testing vm_dot()\n");
     test_dot();
 
-    printf("Testing cross()\n");
+    printf("Testing vm_cross()\n");
     test_cross();
 
-    printf("Testing norm()\n");
+    printf("Testing vm_norm()\n");
     test_norm();
 
-    printf("Testing normalize()\n");
+    printf("Testing vm_normalize()\n");
     test_normalize();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
