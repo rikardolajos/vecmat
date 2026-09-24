@@ -15,6 +15,22 @@ Prefer creating them with `vec2_make()` and `vec3_make()`, which set the unused 
 The library features some vector and matrix manipulation functions that you might expect like adding, subtracting, dot-product and transpose.
 For a full reference, check the header file and the `test.c` file.
 
+Because of the unused lanes, an array of `vec3` has a stride of 16 bytes and cannot be used directly as a tightly packed vertex buffer (`VK_FORMAT_R32G32B32_SFLOAT` expects 12 bytes).
+For GPU data, use the packed storage types `vec2_packed` (8 bytes) and `vec3_packed` (12 bytes), and convert at the boundary:
+
+```C
+    vec3_packed vertices[3];
+
+    /* Do the math with vec3... */
+    vec3 p = vec3_scale(2.0f, vec3_make(1.0f, 2.0f, 3.0f));
+
+    /* ...and store it packed */
+    vertices[0] = vec3_pack(p);
+
+    /* Load it back for more math */
+    vec3 q = vec3_unpack(vertices[0]);
+```
+
 Many of the functions exist for several of the types and the library can also expose them though macros using `_Generic`.
 To use generic calls, `VECMAT_USE_GENERICS` has to be defined before including the header file:
 

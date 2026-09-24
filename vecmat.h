@@ -88,6 +88,33 @@ typedef ALIGN(16) union {
     float array[16];
 } mat4;
 
+/* Tightly packed storage types (8 and 12 bytes). Arrays of these match the GPU
+ * vertex formats R32G32_SFLOAT and R32G32B32_SFLOAT. Convert to vec2/vec3 with
+ * vec2_unpack()/vec3_unpack() to do math, and back with vec2_pack()/vec3_pack()
+ */
+typedef union {
+    struct {
+        float x, y;
+    };
+    struct {
+        float u, v;
+    };
+    float array[2];
+} vec2_packed;
+
+typedef union {
+    struct {
+        float x, y, z;
+    };
+    struct {
+        float r, g, b;
+    };
+    float array[3];
+} vec3_packed;
+
+_Static_assert(sizeof(vec2_packed) == 8, "VECMAT: vec2_packed must be 8 bytes");
+_Static_assert(sizeof(vec3_packed) == 12, "VECMAT: vec3_packed must be 12 bytes");
+
 
 #ifdef VECMAT_USE_GENERICS
 
@@ -168,6 +195,44 @@ static inline vec3 vec3_make(float x, float y, float z)
 static inline vec4 vec4_make(float x, float y, float z, float w)
 {
     return (vec4){.sse = _mm_set_ps(w, z, y, x)};
+}
+
+
+/* Convert a vec2 to its packed storage type */
+static inline vec2_packed vec2_pack(vec2 v)
+{
+    return (vec2_packed){{v.x, v.y}};
+}
+
+/* Convert a vec3 to its packed storage type */
+static inline vec3_packed vec3_pack(vec3 v)
+{
+    return (vec3_packed){{v.x, v.y, v.z}};
+}
+
+/* Convert a packed vec2 to a vec2, with the unused lanes set to zero */
+static inline vec2 vec2_unpack(vec2_packed p)
+{
+    return vec2_make(p.x, p.y);
+}
+
+/* Convert a packed vec3 to a vec3, with the unused lane set to zero */
+static inline vec3 vec3_unpack(vec3_packed p)
+{
+    return vec3_make(p.x, p.y, p.z);
+}
+
+
+/* Extend a vec3 to a vec4 with the given w */
+static inline vec4 vec4_from_vec3(vec3 v, float w)
+{
+    return (vec4){.sse = _mm_set_ps(w, v.z, v.y, v.x)};
+}
+
+/* Drop the w component of a vec4 */
+static inline vec3 vec3_from_vec4(vec4 v)
+{
+    return vec3_make(v.x, v.y, v.z);
 }
 
 
