@@ -417,6 +417,60 @@ void test_normalize()
     assert(equal(norm(g4), norm(r4)));
 }
 
+void test_lerp()
+{
+    /* Vector 2 */
+    vec2 v2 = vec2_make(1.0f, 2.0f);
+    vec2 u2 = vec2_make(3.0f, 6.0f);
+    vec2 r2 = vec2_lerp(v2, u2, 0.25f);
+    assert(equal(r2.x, 1.5f));
+    assert(equal(r2.y, 3.0f));
+
+    /* Endpoints are exact */
+    vec2 s2 = vec2_lerp(v2, u2, 0.0f);
+    vec2 e2 = vec2_lerp(v2, u2, 1.0f);
+    assert(s2.x == v2.x && s2.y == v2.y);
+    assert(e2.x == u2.x && e2.y == u2.y);
+
+    /* Vector 2 generic */
+    vec2 g2 = lerp(v2, u2, 0.25f);
+    assert(equal(g2.x, r2.x));
+    assert(equal(g2.y, r2.y));
+
+    /* Vector 3 */
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3 u3 = vec3_make(-1.0f, 4.0f, 3.0f);
+    vec3 r3 = vec3_lerp(v3, u3, 0.5f);
+    assert(equal(r3.x, 0.0f));
+    assert(equal(r3.y, 3.0f));
+    assert(equal(r3.z, 3.0f));
+
+    /* Vector 3 generic */
+    vec3 g3 = lerp(v3, u3, 0.5f);
+    assert(vec3_close(g3, r3, EPSILON));
+
+    /* Vector 4, extrapolating past t = 1 */
+    vec4 v4 = vec4_make(0.0f, 1.0f, 2.0f, 3.0f);
+    vec4 u4 = vec4_make(2.0f, 3.0f, 4.0f, 5.0f);
+    vec4 r4 = vec4_lerp(v4, u4, 1.5f);
+    assert(equal(r4.x, 3.0f));
+    assert(equal(r4.y, 4.0f));
+    assert(equal(r4.z, 5.0f));
+    assert(equal(r4.w, 6.0f));
+
+    /* Vector 4 generic */
+    vec4 g4 = lerp(v4, u4, 1.5f);
+    for (int i = 0; i < 4; i++) {
+        assert(equal(g4.array[i], r4.array[i]));
+    }
+
+    /* Quaternion generic uses quat_nlerp */
+    quat a = quat_from_axis_angle(0.3f, vec3_make(0.0f, 0.0f, 1.0f));
+    quat b = quat_from_axis_angle(1.2f, vec3_make(0.0f, 1.0f, 0.0f));
+    quat gq = lerp(a, b, 0.3f);
+    assert(rotations_close(gq, quat_nlerp(a, b, 0.3f), 1e-6f));
+}
+
 void test_packed()
 {
     /* Sizes and array strides match the GPU vertex formats */
@@ -1090,6 +1144,9 @@ int main()
 
     printf("Testing normalize()\n");
     test_normalize();
+
+    printf("Testing lerp()\n");
+    test_lerp();
 
     printf("Testing packed types\n");
     test_packed();

@@ -182,6 +182,14 @@ _Static_assert(sizeof(vec3_packed) == 12,
         vec4: vec4_normalize,                                                  \
         quat: quat_normalize)(a)
 
+/* Linear interpolation between two generic types, quaternions use quat_nlerp */
+#define lerp(a, b, t)                                                          \
+    _Generic((a),                                                              \
+        vec2: _Generic((b), vec2: vec2_lerp, default: vec2_lerp),              \
+        vec3: _Generic((b), vec3: vec3_lerp, default: vec3_lerp),              \
+        vec4: _Generic((b), vec4: vec4_lerp, default: vec4_lerp),              \
+        quat: _Generic((b), quat: quat_nlerp, default: quat_nlerp))(a, b, t)
+
 #endif /* VECMAT_USE_GENERICS */
 
 
@@ -394,6 +402,25 @@ static inline vec4 vec4_normalize(vec4 u)
 {
     float n = vec4_norm(u);
     return n > 0.0f ? vec4_scale(1 / n, u) : u;
+}
+
+
+/* Linear interpolation for vec2, returns u at t = 0 and v at t = 1 */
+static inline vec2 vec2_lerp(vec2 u, vec2 v, float t)
+{
+    return vec2_add(vec2_scale(1.0f - t, u), vec2_scale(t, v));
+}
+
+/* Linear interpolation for vec3, returns u at t = 0 and v at t = 1 */
+static inline vec3 vec3_lerp(vec3 u, vec3 v, float t)
+{
+    return vec3_add(vec3_scale(1.0f - t, u), vec3_scale(t, v));
+}
+
+/* Linear interpolation for vec4, returns u at t = 0 and v at t = 1 */
+static inline vec4 vec4_lerp(vec4 u, vec4 v, float t)
+{
+    return vec4_add(vec4_scale(1.0f - t, u), vec4_scale(t, v));
 }
 
 

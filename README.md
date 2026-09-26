@@ -57,6 +57,9 @@ This allows to use the same macro for different types:
 
     /* Or add using the generic add macro */
     vec3 g3 = add(v3, u3);
+
+    /* Interpolate a quarter of the way from v3 to u3 */
+    vec3 l3 = lerp(v3, u3, 0.25f);
 ```
 
 Rotations can also be stored as quaternions with the `quat` type, stored as `(x, y, z, w)` with `w` as the scalar part.
