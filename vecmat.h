@@ -155,6 +155,28 @@ _Static_assert(sizeof(vec3_packed) == 12,
         vec4: vec4_scale,                                                      \
         mat4: mat4_scale)(f, a)
 
+/* Negation of a vector */
+#define negate(a)                                                              \
+    _Generic((a),                                                              \
+        vec2: vec2_negate,                                                     \
+        vec3: vec3_negate,                                                     \
+        vec4: vec4_negate)(a)
+
+/* Multiplication of two matrices, a matrix and a vector, or two quaternions */
+#define mul(a, b)                                                              \
+    _Generic((a),                                                              \
+        mat4: _Generic((b),                                                    \
+            mat4: mat4_mul,                                                    \
+            vec4: mat4_mul_vec4,                                               \
+            default: mat4_mul),                                                \
+        quat: _Generic((b), quat: quat_mul, default: quat_mul))(a, b)
+
+/* Inverse of a matrix or a quaternion */
+#define inverse(a)                                                             \
+    _Generic((a),                                                              \
+        mat4: mat4_inverse,                                                    \
+        quat: quat_inverse)(a)
+
 /* Dot multiplication of two vectors */
 #define dot(a, b)                                                              \
     _Generic((a),                                                              \
@@ -173,6 +195,21 @@ _Static_assert(sizeof(vec3_packed) == 12,
         vec3: vec3_norm,                                                       \
         vec4: vec4_norm,                                                       \
         quat: quat_norm)(a)
+
+/* Calculate squared norm of a generic type, cheaper than norm */
+#define norm2(a)                                                               \
+    _Generic((a),                                                              \
+        vec2: vec2_norm2,                                                      \
+        vec3: vec3_norm2,                                                      \
+        vec4: vec4_norm2,                                                      \
+        quat: quat_norm2)(a)
+
+/* Calculate the distance between two vectors */
+#define distance(a, b)                                                         \
+    _Generic((a),                                                              \
+        vec2: _Generic((b), vec2: vec2_distance, default: vec2_distance),      \
+        vec3: _Generic((b), vec3: vec3_distance, default: vec3_distance),      \
+        vec4: _Generic((b), vec4: vec4_distance, default: vec4_distance))(a, b)
 
 /* Calculate normalized vector with same direction */
 #define normalize(a)                                                           \
@@ -325,6 +362,36 @@ static inline vec4 vec4_scale(float f, vec4 u)
 }
 
 
+/* All four sign bits set, for flipping signs with xor. Built from integer
+ * bits, as -ffast-math may turn a -0.0f constant into 0.0f and break it. */
+static inline __m128 vecmat_sign_mask(void)
+{
+    static const union {
+        unsigned int bits[4];
+        __m128 sse;
+    } mask = {{0x80000000u, 0x80000000u, 0x80000000u, 0x80000000u}};
+    return mask.sse;
+}
+
+/* Negation for vec2 */
+static inline vec2 vec2_negate(vec2 u)
+{
+    return (vec2){.sse = _mm_xor_ps(u.sse, vecmat_sign_mask())};
+}
+
+/* Negation for vec3 */
+static inline vec3 vec3_negate(vec3 u)
+{
+    return (vec3){.sse = _mm_xor_ps(u.sse, vecmat_sign_mask())};
+}
+
+/* Negation for vec4 */
+static inline vec4 vec4_negate(vec4 u)
+{
+    return (vec4){.sse = _mm_xor_ps(u.sse, vecmat_sign_mask())};
+}
+
+
 /* Dot multiplication for vec2 */
 static inline float vec2_dot(vec2 u, vec2 v)
 {
@@ -364,22 +431,41 @@ static inline vec3 vec3_cross(vec3 u, vec3 v)
 }
 
 
+/* Calculate the squared norm of a vec2 */
+static inline float vec2_norm2(vec2 u)
+{
+    return vec2_dot(u, u);
+}
+
+/* Calculate the squared norm of a vec3 */
+static inline float vec3_norm2(vec3 u)
+{
+    return vec3_dot(u, u);
+}
+
+/* Calculate the squared norm of a vec4 */
+static inline float vec4_norm2(vec4 u)
+{
+    return vec4_dot(u, u);
+}
+
+
 /* Calculate the norm of a vec2 */
 static inline float vec2_norm(vec2 u)
 {
-    return sqrtf(vec2_dot(u, u));
+    return sqrtf(vec2_norm2(u));
 }
 
 /* Calculate the norm of a vec3 */
 static inline float vec3_norm(vec3 u)
 {
-    return sqrtf(vec3_dot(u, u));
+    return sqrtf(vec3_norm2(u));
 }
 
 /* Calculate the norm of a vec4 */
 static inline float vec4_norm(vec4 u)
 {
-    return sqrtf(vec4_dot(u, u));
+    return sqrtf(vec4_norm2(u));
 }
 
 
@@ -402,6 +488,25 @@ static inline vec4 vec4_normalize(vec4 u)
 {
     float n = vec4_norm(u);
     return n > 0.0f ? vec4_scale(1 / n, u) : u;
+}
+
+
+/* Distance between two vec2 */
+static inline float vec2_distance(vec2 u, vec2 v)
+{
+    return vec2_norm(vec2_sub(v, u));
+}
+
+/* Distance between two vec3 */
+static inline float vec3_distance(vec3 u, vec3 v)
+{
+    return vec3_norm(vec3_sub(v, u));
+}
+
+/* Distance between two vec4 */
+static inline float vec4_distance(vec4 u, vec4 v)
+{
+    return vec4_norm(vec4_sub(v, u));
 }
 
 
@@ -797,10 +902,16 @@ static inline float quat_dot(quat a, quat b)
     return vec4_dot((vec4){.sse = a.sse}, (vec4){.sse = b.sse});
 }
 
+/* Calculate the squared norm of a quaternion */
+static inline float quat_norm2(quat q)
+{
+    return quat_dot(q, q);
+}
+
 /* Calculate the norm of a quaternion */
 static inline float quat_norm(quat q)
 {
-    return sqrtf(quat_dot(q, q));
+    return sqrtf(quat_norm2(q));
 }
 
 /* Normalization of a quaternion */
@@ -820,7 +931,7 @@ static inline quat quat_conjugate(quat q)
 /* Inverse of a quaternion, which must be non-zero */
 static inline quat quat_inverse(quat q)
 {
-    __m128 n = _mm_set_ps1(quat_dot(q, q));
+    __m128 n = _mm_set_ps1(quat_norm2(q));
     return (quat){.sse = _mm_div_ps(quat_conjugate(q).sse, n)};
 }
 

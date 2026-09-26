@@ -62,6 +62,9 @@ This allows to use the same macro for different types:
     vec3 l3 = lerp(v3, u3, 0.25f);
 ```
 
+The generic macros are `add`, `sub`, `scale`, `negate`, `mul`, `inverse`, `dot`, `cross`, `norm`, `norm2`, `normalize`, `distance` and `lerp`.
+`mul` covers `mat4 * mat4`, `mat4 * vec4` and `quat * quat`, and `lerp` on quaternions uses `quat_nlerp()`.
+
 Rotations can also be stored as quaternions with the `quat` type, stored as `(x, y, z, w)` with `w` as the scalar part.
 Quaternions follow the same conventions as the matrices: rotations are right-handed, and `quat_mul(a, b)` applies `b` first and then `a`, just like `mat4_mul()`.
 

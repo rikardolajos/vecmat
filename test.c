@@ -471,6 +471,116 @@ void test_lerp()
     assert(rotations_close(gq, quat_nlerp(a, b, 0.3f), 1e-6f));
 }
 
+void test_negate()
+{
+    /* Vector 2 */
+    vec2 v2 = vec2_make(1.0f, -2.0f);
+    vec2 r2 = vec2_negate(v2);
+    assert(r2.x == -1.0f && r2.y == 2.0f);
+
+    /* Vector 2 generic */
+    vec2 g2 = negate(v2);
+    assert(g2.x == r2.x && g2.y == r2.y);
+
+    /* Vector 3, zero flips to negative zero */
+    vec3 v3 = vec3_make(1.0f, -2.0f, 0.0f);
+    vec3 r3 = vec3_negate(v3);
+    assert(r3.x == -1.0f && r3.y == 2.0f && r3.z == 0.0f);
+#ifndef __FAST_MATH__
+    /* -ffast-math ignores the sign of zero */
+    assert(signbit(r3.z));
+#endif
+
+    /* Vector 3 generic */
+    vec3 g3 = negate(v3);
+    assert(vec3_close(g3, r3, EPSILON));
+
+    /* Vector 4, negating twice gives back the original */
+    vec4 v4 = vec4_make(1.0f, -2.0f, 3.0f, -4.0f);
+    vec4 r4 = vec4_negate(v4);
+    vec4 g4 = negate(negate(v4));
+    for (int i = 0; i < 4; i++) {
+        assert(r4.array[i] == -v4.array[i]);
+        assert(g4.array[i] == v4.array[i]);
+    }
+}
+
+void test_norm2()
+{
+    /* Vector 2 */
+    vec2 v2 = vec2_make(3.0f, 4.0f);
+    assert(equal(vec2_norm2(v2), 25.0f));
+    assert(equal(norm2(v2), 25.0f));
+
+    /* Vector 3 */
+    vec3 v3 = vec3_make(1.0f, 2.0f, 2.0f);
+    assert(equal(vec3_norm2(v3), 9.0f));
+    assert(equal(norm2(v3), 9.0f));
+
+    /* Vector 4 */
+    vec4 v4 = vec4_make(1.0f, 2.0f, 3.0f, 4.0f);
+    assert(equal(vec4_norm2(v4), 30.0f));
+    assert(equal(norm2(v4), 30.0f));
+
+    /* Quaternion */
+    quat q = quat_make(1.0f, 1.0f, 1.0f, 1.0f);
+    assert(equal(quat_norm2(q), 4.0f));
+    assert(equal(norm2(q), 4.0f));
+}
+
+void test_distance()
+{
+    /* Vector 2 */
+    vec2 v2 = vec2_make(1.0f, 1.0f);
+    vec2 u2 = vec2_make(4.0f, 5.0f);
+    assert(equal(vec2_distance(v2, u2), 5.0f));
+    assert(equal(distance(v2, u2), 5.0f));
+
+    /* Vector 3, symmetric */
+    vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
+    vec3 u3 = vec3_make(2.0f, 4.0f, 5.0f);
+    assert(equal(vec3_distance(v3, u3), 3.0f));
+    assert(equal(distance(u3, v3), 3.0f));
+
+    /* Vector 4 */
+    vec4 v4 = vec4_make(1.0f, 1.0f, 1.0f, 1.0f);
+    vec4 u4 = vec4_make(2.0f, 2.0f, 2.0f, 2.0f);
+    assert(equal(vec4_distance(v4, u4), 2.0f));
+    assert(equal(distance(v4, u4), 2.0f));
+
+    /* Distance to itself is zero */
+    assert(distance(v3, v3) == 0.0f);
+}
+
+void test_mul_inverse_generic()
+{
+    mat4 m = mat4_mul(mat4_trs_translate(vec3_make(1.0f, 2.0f, 3.0f)),
+                      mat4_trs_rotate(0.7f, vec3_make(0.0f, 1.0f, 0.0f)));
+    mat4 n = mat4_trs_scale(vec3_make(2.0f, 3.0f, 4.0f));
+
+    /* Matrix times matrix */
+    assert(matrices_close(mul(m, n), mat4_mul(m, n), EPSILON));
+
+    /* Matrix times vector */
+    vec4 v = vec4_make(1.0f, 2.0f, 3.0f, 1.0f);
+    vec4 mv = mul(m, v);
+    vec4 rv = mat4_mul_vec4(m, v);
+    for (int i = 0; i < 4; i++) {
+        assert(equal(mv.array[i], rv.array[i]));
+    }
+
+    /* Quaternion times quaternion */
+    quat a = quat_from_axis_angle(0.3f, vec3_make(0.0f, 0.0f, 1.0f));
+    quat b = quat_from_axis_angle(1.2f, vec3_make(0.0f, 1.0f, 0.0f));
+    assert(rotations_close(mul(a, b), quat_mul(a, b), EPSILON));
+
+    /* Inverses */
+    assert(matrices_close(inverse(m), mat4_inverse(m), EPSILON));
+    assert(matrices_close(mul(m, inverse(m)), MAT4_IDENTITY, 1e-5f));
+    assert(rotations_close(inverse(a), quat_inverse(a), EPSILON));
+    assert(rotations_close(mul(a, inverse(a)), QUAT_IDENTITY, 1e-6f));
+}
+
 void test_packed()
 {
     /* Sizes and array strides match the GPU vertex formats */
@@ -1147,6 +1257,18 @@ int main()
 
     printf("Testing lerp()\n");
     test_lerp();
+
+    printf("Testing negate()\n");
+    test_negate();
+
+    printf("Testing norm2()\n");
+    test_norm2();
+
+    printf("Testing distance()\n");
+    test_distance();
+
+    printf("Testing generic mul() and inverse()\n");
+    test_mul_inverse_generic();
 
     printf("Testing packed types\n");
     test_packed();
