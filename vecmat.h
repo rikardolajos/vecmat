@@ -132,7 +132,7 @@ _Static_assert(sizeof(vec3_packed) == 12,
 #ifdef VECMAT_USE_GENERICS
 
 /* Add two generic types together */
-#define vm_add(a, b)                                                           \
+#define add(a, b)                                                              \
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_add, default: vec2_add),                \
         vec3: _Generic((b), vec3: vec3_add, default: vec3_add),                \
@@ -140,7 +140,7 @@ _Static_assert(sizeof(vec3_packed) == 12,
         mat4: _Generic((b), mat4: mat4_add, default: mat4_add))(a, b)
 
 /* Subtract two generic types from each other */
-#define vm_sub(a, b)                                                           \
+#define sub(a, b)                                                              \
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_sub, default: vec2_sub),                \
         vec3: _Generic((b), vec3: vec3_sub, default: vec3_sub),                \
@@ -148,7 +148,7 @@ _Static_assert(sizeof(vec3_packed) == 12,
         mat4: _Generic((b), mat4: mat4_sub, default: mat4_sub))(a, b)
 
 /* Scalar multiplication of a generic type */
-#define vm_scale(f, a)                                                         \
+#define scale(f, a)                                                            \
     _Generic((a),                                                              \
         vec2: vec2_scale,                                                      \
         vec3: vec3_scale,                                                      \
@@ -156,7 +156,7 @@ _Static_assert(sizeof(vec3_packed) == 12,
         mat4: mat4_scale)(f, a)
 
 /* Dot multiplication of two vectors */
-#define vm_dot(a, b)                                                           \
+#define dot(a, b)                                                              \
     _Generic((a),                                                              \
         vec2: _Generic((b), vec2: vec2_dot, default: vec2_dot),                \
         vec3: _Generic((b), vec3: vec3_dot, default: vec3_dot),                \
@@ -164,11 +164,10 @@ _Static_assert(sizeof(vec3_packed) == 12,
         quat: _Generic((b), quat: quat_dot, default: quat_dot))(a, b)
 
 /* Cross multiplication of two vec3 */
-#define vm_cross(a, b)                                                         \
-    _Generic((a), vec3: _Generic((b), vec3: vec3_cross))(a, b)
+#define cross(a, b) _Generic((a), vec3: _Generic((b), vec3: vec3_cross))(a, b)
 
 /* Calculate norm of a generic type */
-#define vm_norm(a)                                                             \
+#define norm(a)                                                                \
     _Generic((a),                                                              \
         vec2: vec2_norm,                                                       \
         vec3: vec3_norm,                                                       \
@@ -176,7 +175,7 @@ _Static_assert(sizeof(vec3_packed) == 12,
         quat: quat_norm)(a)
 
 /* Calculate normalized vector with same direction */
-#define vm_normalize(a)                                                        \
+#define normalize(a)                                                           \
     _Generic((a),                                                              \
         vec2: vec2_normalize,                                                  \
         vec3: vec3_normalize,                                                  \

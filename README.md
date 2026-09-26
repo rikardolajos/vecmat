@@ -48,7 +48,7 @@ This allows to use the same macro for different types:
     vec2 r2 = vec2_add(v2, u2);
 
     /* Adding using the generic add macro */
-    vec2 g2 = vm_add(v2, u2);
+    vec2 g2 = add(v2, u2);
 
     /* Adding two vec3 using vec3_add */
     vec3 v3 = vec3_make(1.0f, 2.0f, 3.0f);
@@ -56,7 +56,7 @@ This allows to use the same macro for different types:
     vec3 r3 = vec3_add(v3, u3);
 
     /* Or add using the generic add macro */
-    vec3 g3 = vm_add(v3, u3);
+    vec3 g3 = add(v3, u3);
 ```
 
 Rotations can also be stored as quaternions with the `quat` type, stored as `(x, y, z, w)` with `w` as the scalar part.
