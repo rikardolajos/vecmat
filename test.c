@@ -1232,6 +1232,41 @@ void test_quat_lookat()
     }
 }
 
+/* Depth of a point on the view axis after projection and perspective division */
+float projected_depth(mat4 p, float z)
+{
+    vec4 v = mat4_mul_vec4(p, vec4_make(0.0f, 0.0f, z, 1.0f));
+    return v.z / v.w;
+}
+
+void test_projection_depth()
+{
+#ifdef VECMAT_REVERSE_Z
+    float near_depth = 1.0f;
+    float far_depth = 0.0f;
+#else
+    float near_depth = 0.0f;
+    float far_depth = 1.0f;
+#endif
+
+    /* Points in front of the camera are at negative z */
+    mat4 p = mat4_perspective(1280, 720, 0.1f, 100.0f, 0.8f);
+    assert(fabsf(projected_depth(p, -0.1f) - near_depth) < 1e-5f);
+    assert(fabsf(projected_depth(p, -100.0f) - far_depth) < 1e-5f);
+
+    /* Depth changes monotonically from near to far */
+    float d1 = projected_depth(p, -1.0f);
+    float d10 = projected_depth(p, -10.0f);
+    assert(d1 > 0.0f && d1 < 1.0f && d10 > 0.0f && d10 < 1.0f);
+    assert((d10 - d1) * (far_depth - near_depth) > 0.0f);
+
+    /* Orthographic depth is linear, so halfway is 0.5 */
+    mat4 o = mat4_orthographic(2.0f, 1.0f, 1.0f, 11.0f);
+    assert(fabsf(projected_depth(o, -1.0f) - near_depth) < 1e-6f);
+    assert(fabsf(projected_depth(o, -11.0f) - far_depth) < 1e-6f);
+    assert(fabsf(projected_depth(o, -6.0f) - 0.5f) < 1e-6f);
+}
+
 int main()
 {
     printf("Testing add()\n");
@@ -1317,6 +1352,9 @@ int main()
 
     printf("Testing quat_lookat()\n");
     test_quat_lookat();
+
+    printf("Testing projection depth\n");
+    test_projection_depth();
 
     printf("=== VECMAT TESTING COMPLETED ===\n");
     return 0;

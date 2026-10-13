@@ -1069,29 +1069,45 @@ static inline quat quat_slerp(quat a, quat b, float t)
 }
 
 
-/* Return a orthographic projection matrix */
+/* Return a orthographic projection matrix. Depth goes from 0 at zNear to 1 at
+ * zFar, or from 1 to 0 if VECMAT_REVERSE_Z is defined. */
 static inline mat4 mat4_orthographic(float right, float top, float zNear,
                                      float zFar)
 {
+#ifdef VECMAT_REVERSE_Z
+    float depthScale = 1.0f / (zFar - zNear);
+    float depthOffset = zFar / (zFar - zNear);
+#else
+    float depthScale = -1.0f / (zFar - zNear);
+    float depthOffset = -zNear / (zFar - zNear);
+#endif
     return mat4_transpose((mat4){{
         {1.0f / right, 0.0f, 0.0f, 0.0f},
         {0.0f, -1.0f / top, 0.0f, 0.0f},
-        {0.0f, 0.0f, -1.0f / (zFar - zNear), -zNear / (zFar - zNear)},
+        {0.0f, 0.0f, depthScale, depthOffset},
         {0.0f, 0.0f, 0.0f, 1.0f},
     }});
 }
 
 
-/* Return a perspective projection matrix */
+/* Return a perspective projection matrix, with the field of view in radians.
+ * Depth goes from 0 at zNear to 1 at zFar, or from 1 to 0 if VECMAT_REVERSE_Z
+ * is defined. */
 static inline mat4 mat4_perspective(int width, int height, float zNear,
                                     float zFar, float fov)
 {
     float f = tanf(1.57079632679f - 0.5f * fov);
     float aspect = (float)width / (float)height;
-    float depth = (-zFar) / (zFar - zNear);
+#ifdef VECMAT_REVERSE_Z
+    float depthScale = zNear / (zFar - zNear);
+    float depthOffset = zNear * zFar / (zFar - zNear);
+#else
+    float depthScale = (-zFar) / (zFar - zNear);
+    float depthOffset = zNear * depthScale;
+#endif
     return mat4_transpose((mat4){{{f / aspect, 0.0f, 0.0f, 0.0f},
                                   {0.0f, -f, 0.0f, 0.0f},
-                                  {0.0f, 0.0f, depth, zNear * depth},
+                                  {0.0f, 0.0f, depthScale, depthOffset},
                                   {0.0f, 0.0f, -1.0f, 0.0f}}});
 }
 

@@ -104,6 +104,16 @@ They are prefixed with `mat4_trs_*`.
 
 Orthographic and perspective projections are also provided as `mat4_orthographic()` and `mat4_perspective()` respectively, as well as the ubiquitous look-at transform `mat4_lookat()`.
 The coordinate system has been designed to work with Vulkan.
+Angles are in radians, and the projections map depth to Vulkan's `[0, 1]` range with the near plane at 0 and the far plane at 1.
+Clear depth to 1.0 and use `VK_COMPARE_OP_LESS` with them.
+
+For better depth precision with a floating point depth buffer, the projections can instead put the near plane at 1 and the far plane at 0, known as reversed Z.
+To use it, `VECMAT_REVERSE_Z` has to be defined before including the header file, and depth then has to be cleared to 0.0 and compared with `VK_COMPARE_OP_GREATER`:
+
+```C
+#define VECMAT_REVERSE_Z
+#include "vecmat.h"
+```
 
 ## License
 
