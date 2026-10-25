@@ -25,29 +25,178 @@
 #include <math.h>
 #include <stdbool.h>
 
+/* SSE is used where it is available, which is always the case on x86-64.
+ * Elsewhere, such as on ARM, or when VECMAT_NO_SIMD is defined, the lanes are
+ * plain floats, which compilers vectorize on their own. */
+
 /* GCC and CLANG */
 #if defined(__GNUC__) || defined(__clang__)
 
-#if !defined(__SSE__)
-#error "VECMAT: SSE is required"
-#endif
-
+#if defined(__SSE__) && !defined(VECMAT_NO_SIMD)
+#define VECMAT_SSE
 #include <immintrin.h>
+#endif
 #define ALIGN(x) __attribute__((aligned(x)))
 
 /* MSVC */
 #elif defined(_MSC_VER)
 
-#if !defined(_M_X64) && !(defined(_M_IX86_FP) && _M_IX86_FP >= 1)
-#error "VECMAT: SSE is required"
-#endif
-
+#if (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1)) &&           \
+    !defined(VECMAT_NO_SIMD)
+#define VECMAT_SSE
 #include <intrin.h>
+#endif
 #define ALIGN(x) __declspec(align(x))
 
 #else
 #error "VECMAT: Unknown compiler"
 #endif
+
+
+/* Four floats, which all vector types are stored in, and the operations on
+ * them. These are all that differs between SSE and plain floats. The lanes are
+ * in storage order, x first. */
+#ifdef VECMAT_SSE
+
+typedef __m128 vecmat_f4;
+
+static inline vecmat_f4 vecmat_set(float x, float y, float z, float w)
+{
+    return _mm_set_ps(w, z, y, x);
+}
+
+static inline vecmat_f4 vecmat_splat(float f)
+{
+    return _mm_set_ps1(f);
+}
+
+static inline vecmat_f4 vecmat_add(vecmat_f4 a, vecmat_f4 b)
+{
+    return _mm_add_ps(a, b);
+}
+
+static inline vecmat_f4 vecmat_sub(vecmat_f4 a, vecmat_f4 b)
+{
+    return _mm_sub_ps(a, b);
+}
+
+static inline vecmat_f4 vecmat_mul(vecmat_f4 a, vecmat_f4 b)
+{
+    return _mm_mul_ps(a, b);
+}
+
+static inline vecmat_f4 vecmat_div(vecmat_f4 a, vecmat_f4 b)
+{
+    return _mm_div_ps(a, b);
+}
+
+/* Bitwise xor, for flipping signs */
+static inline vecmat_f4 vecmat_xor(vecmat_f4 a, vecmat_f4 b)
+{
+    return _mm_xor_ps(a, b);
+}
+
+/* The x lane */
+static inline float vecmat_first(vecmat_f4 a)
+{
+    return _mm_cvtss_f32(a);
+}
+
+/* Lanes x, y, z and w of the result are lanes i, j, k and l of a, which must
+ * be constants */
+#define VECMAT_SWIZZLE(a, i, j, k, l)                                          \
+    _mm_shuffle_ps((a), (a), _MM_SHUFFLE(l, k, j, i))
+
+/* Transpose the 4x4 matrix with rows a, b, c and d in place */
+static inline void vecmat_transpose(vecmat_f4* a, vecmat_f4* b, vecmat_f4* c,
+                                    vecmat_f4* d)
+{
+    _MM_TRANSPOSE4_PS(*a, *b, *c, *d);
+}
+
+#else
+
+typedef struct {
+    float lanes[4];
+} vecmat_f4;
+
+static inline vecmat_f4 vecmat_set(float x, float y, float z, float w)
+{
+    return (vecmat_f4){{x, y, z, w}};
+}
+
+static inline vecmat_f4 vecmat_splat(float f)
+{
+    return (vecmat_f4){{f, f, f, f}};
+}
+
+static inline vecmat_f4 vecmat_add(vecmat_f4 a, vecmat_f4 b)
+{
+    return (vecmat_f4){{a.lanes[0] + b.lanes[0], a.lanes[1] + b.lanes[1],
+                        a.lanes[2] + b.lanes[2], a.lanes[3] + b.lanes[3]}};
+}
+
+static inline vecmat_f4 vecmat_sub(vecmat_f4 a, vecmat_f4 b)
+{
+    return (vecmat_f4){{a.lanes[0] - b.lanes[0], a.lanes[1] - b.lanes[1],
+                        a.lanes[2] - b.lanes[2], a.lanes[3] - b.lanes[3]}};
+}
+
+static inline vecmat_f4 vecmat_mul(vecmat_f4 a, vecmat_f4 b)
+{
+    return (vecmat_f4){{a.lanes[0] * b.lanes[0], a.lanes[1] * b.lanes[1],
+                        a.lanes[2] * b.lanes[2], a.lanes[3] * b.lanes[3]}};
+}
+
+static inline vecmat_f4 vecmat_div(vecmat_f4 a, vecmat_f4 b)
+{
+    return (vecmat_f4){{a.lanes[0] / b.lanes[0], a.lanes[1] / b.lanes[1],
+                        a.lanes[2] / b.lanes[2], a.lanes[3] / b.lanes[3]}};
+}
+
+/* Bitwise xor, for flipping signs */
+static inline vecmat_f4 vecmat_xor(vecmat_f4 a, vecmat_f4 b)
+{
+    union {
+        vecmat_f4 f4;
+        unsigned int bits[4];
+    } ua = {a}, ub = {b};
+    for (int i = 0; i < 4; i++) {
+        ua.bits[i] ^= ub.bits[i];
+    }
+    return ua.f4;
+}
+
+/* The x lane */
+static inline float vecmat_first(vecmat_f4 a)
+{
+    return a.lanes[0];
+}
+
+static inline vecmat_f4 vecmat_swizzle(vecmat_f4 a, int i, int j, int k, int l)
+{
+    return (vecmat_f4){{a.lanes[i], a.lanes[j], a.lanes[k], a.lanes[l]}};
+}
+
+/* Lanes x, y, z and w of the result are lanes i, j, k and l of a, which must
+ * be constants */
+#define VECMAT_SWIZZLE(a, i, j, k, l) vecmat_swizzle((a), i, j, k, l)
+
+/* Transpose the 4x4 matrix with rows a, b, c and d in place */
+static inline void vecmat_transpose(vecmat_f4* a, vecmat_f4* b, vecmat_f4* c,
+                                    vecmat_f4* d)
+{
+    vecmat_f4* rows[4] = {a, b, c, d};
+    for (int i = 0; i < 4; i++) {
+        for (int j = i + 1; j < 4; j++) {
+            float t = rows[i]->lanes[j];
+            rows[i]->lanes[j] = rows[j]->lanes[i];
+            rows[j]->lanes[i] = t;
+        }
+    }
+}
+
+#endif /* VECMAT_SSE */
 
 
 typedef ALIGN(16) union {
@@ -58,7 +207,7 @@ typedef ALIGN(16) union {
         float u, v;
     };
     float array[4];
-    __m128 sse;
+    vecmat_f4 sse;
 } vec2;
 
 typedef ALIGN(16) union {
@@ -69,7 +218,7 @@ typedef ALIGN(16) union {
         float r, g, b;
     };
     float array[4];
-    __m128 sse;
+    vecmat_f4 sse;
 } vec3;
 
 typedef ALIGN(16) union {
@@ -80,7 +229,7 @@ typedef ALIGN(16) union {
         float r, g, b, a;
     };
     float array[4];
-    __m128 sse;
+    vecmat_f4 sse;
 } vec4;
 
 typedef ALIGN(16) union {
@@ -97,7 +246,7 @@ typedef ALIGN(16) union {
         float x, y, z, w;
     };
     float array[4];
-    __m128 sse;
+    vecmat_f4 sse;
 } quat;
 
 /* Tightly packed storage types (8 and 12 bytes). Arrays of these match the GPU
@@ -251,19 +400,19 @@ _Static_assert(sizeof(vec3_packed) == 12,
 /* Create a vec2, with the unused lanes set to zero */
 static inline vec2 vec2_make(float x, float y)
 {
-    return (vec2){.sse = _mm_set_ps(0.0f, 0.0f, y, x)};
+    return (vec2){.sse = vecmat_set(x, y, 0.0f, 0.0f)};
 }
 
 /* Create a vec3, with the unused lane set to zero */
 static inline vec3 vec3_make(float x, float y, float z)
 {
-    return (vec3){.sse = _mm_set_ps(0.0f, z, y, x)};
+    return (vec3){.sse = vecmat_set(x, y, z, 0.0f)};
 }
 
 /* Create a vec4 */
 static inline vec4 vec4_make(float x, float y, float z, float w)
 {
-    return (vec4){.sse = _mm_set_ps(w, z, y, x)};
+    return (vec4){.sse = vecmat_set(x, y, z, w)};
 }
 
 
@@ -295,7 +444,7 @@ static inline vec3 vec3_unpack(vec3_packed p)
 /* Extend a vec3 to a vec4 with the given w */
 static inline vec4 vec4_from_vec3(vec3 v, float w)
 {
-    return (vec4){.sse = _mm_set_ps(w, v.z, v.y, v.x)};
+    return (vec4){.sse = vecmat_set(v.x, v.y, v.z, w)};
 }
 
 /* Drop the w component of a vec4 */
@@ -308,67 +457,67 @@ static inline vec3 vec3_from_vec4(vec4 v)
 /* Addition for vec2 */
 static inline vec2 vec2_add(vec2 u, vec2 v)
 {
-    return (vec2){.sse = _mm_add_ps(u.sse, v.sse)};
+    return (vec2){.sse = vecmat_add(u.sse, v.sse)};
 }
 
 /* Addition for vec3 */
 static inline vec3 vec3_add(vec3 u, vec3 v)
 {
-    return (vec3){.sse = _mm_add_ps(u.sse, v.sse)};
+    return (vec3){.sse = vecmat_add(u.sse, v.sse)};
 }
 
 /* Addition for vec4 */
 static inline vec4 vec4_add(vec4 u, vec4 v)
 {
-    return (vec4){.sse = _mm_add_ps(u.sse, v.sse)};
+    return (vec4){.sse = vecmat_add(u.sse, v.sse)};
 }
 
 
 /* Subtraction for vec2 */
 static inline vec2 vec2_sub(vec2 u, vec2 v)
 {
-    return (vec2){.sse = _mm_sub_ps(u.sse, v.sse)};
+    return (vec2){.sse = vecmat_sub(u.sse, v.sse)};
 }
 
 /* Subtraction for vec3 */
 static inline vec3 vec3_sub(vec3 u, vec3 v)
 {
-    return (vec3){.sse = _mm_sub_ps(u.sse, v.sse)};
+    return (vec3){.sse = vecmat_sub(u.sse, v.sse)};
 }
 
 /* Subtraction for vec4 */
 static inline vec4 vec4_sub(vec4 u, vec4 v)
 {
-    return (vec4){.sse = _mm_sub_ps(u.sse, v.sse)};
+    return (vec4){.sse = vecmat_sub(u.sse, v.sse)};
 }
 
 
 /* Scalar multiplication for vec2 */
 static inline vec2 vec2_scale(float f, vec2 u)
 {
-    return (vec2){.sse = _mm_mul_ps(_mm_set_ps1(f), u.sse)};
+    return (vec2){.sse = vecmat_mul(vecmat_splat(f), u.sse)};
 }
 
 /* Scalar multiplication for vec3 */
 static inline vec3 vec3_scale(float f, vec3 u)
 {
-    return (vec3){.sse = _mm_mul_ps(_mm_set_ps1(f), u.sse)};
+    return (vec3){.sse = vecmat_mul(vecmat_splat(f), u.sse)};
 }
 
 /* Scalar multiplication for vec4 */
 static inline vec4 vec4_scale(float f, vec4 u)
 {
-    return (vec4){.sse = _mm_mul_ps(_mm_set_ps1(f), u.sse)};
+    return (vec4){.sse = vecmat_mul(vecmat_splat(f), u.sse)};
 }
 
 
 /* All four sign bits set, for flipping signs with xor. Built from integer
  * bits, as -ffast-math may turn a -0.0f constant into 0.0f and break it. */
-static inline __m128 vecmat_sign_mask(void)
+static inline vecmat_f4 vecmat_sign_mask(void)
 {
     static const union {
         unsigned int bits[4];
-        __m128 sse;
+        vecmat_f4 sse;
     } mask = {{0x80000000u, 0x80000000u, 0x80000000u, 0x80000000u}};
     return mask.sse;
 }
@@ -376,58 +525,58 @@ static inline __m128 vecmat_sign_mask(void)
 /* Negation for vec2 */
 static inline vec2 vec2_negate(vec2 u)
 {
-    return (vec2){.sse = _mm_xor_ps(u.sse, vecmat_sign_mask())};
+    return (vec2){.sse = vecmat_xor(u.sse, vecmat_sign_mask())};
 }
 
 /* Negation for vec3 */
 static inline vec3 vec3_negate(vec3 u)
 {
-    return (vec3){.sse = _mm_xor_ps(u.sse, vecmat_sign_mask())};
+    return (vec3){.sse = vecmat_xor(u.sse, vecmat_sign_mask())};
 }
 
 /* Negation for vec4 */
 static inline vec4 vec4_negate(vec4 u)
 {
-    return (vec4){.sse = _mm_xor_ps(u.sse, vecmat_sign_mask())};
+    return (vec4){.sse = vecmat_xor(u.sse, vecmat_sign_mask())};
 }
 
 
 /* Dot multiplication for vec2 */
 static inline float vec2_dot(vec2 u, vec2 v)
 {
-    __m128 p = _mm_mul_ps(u.sse, v.sse);
-    __m128 y = _mm_shuffle_ps(p, p, _MM_SHUFFLE(1, 1, 1, 1));
-    return _mm_cvtss_f32(_mm_add_ss(p, y));
+    vecmat_f4 p = vecmat_mul(u.sse, v.sse);
+    vecmat_f4 y = VECMAT_SWIZZLE(p, 1, 1, 1, 1);
+    return vecmat_first(vecmat_add(p, y));
 }
 
 /* Dot multiplication for vec3 */
 static inline float vec3_dot(vec3 u, vec3 v)
 {
-    __m128 p = _mm_mul_ps(u.sse, v.sse);
-    __m128 y = _mm_shuffle_ps(p, p, _MM_SHUFFLE(1, 1, 1, 1));
-    __m128 z = _mm_movehl_ps(p, p);
-    return _mm_cvtss_f32(_mm_add_ss(_mm_add_ss(p, y), z));
+    vecmat_f4 p = vecmat_mul(u.sse, v.sse);
+    vecmat_f4 y = VECMAT_SWIZZLE(p, 1, 1, 1, 1);
+    vecmat_f4 z = VECMAT_SWIZZLE(p, 2, 2, 2, 2);
+    return vecmat_first(vecmat_add(vecmat_add(p, y), z));
 }
 
 /* Dot multiplication for vec4 */
 static inline float vec4_dot(vec4 u, vec4 v)
 {
-    __m128 p = _mm_mul_ps(u.sse, v.sse);
-    __m128 s = _mm_add_ps(p, _mm_movehl_ps(p, p));
-    __m128 t = _mm_shuffle_ps(s, s, _MM_SHUFFLE(1, 1, 1, 1));
-    return _mm_cvtss_f32(_mm_add_ss(s, t));
+    vecmat_f4 p = vecmat_mul(u.sse, v.sse);
+    vecmat_f4 s = vecmat_add(p, VECMAT_SWIZZLE(p, 2, 3, 2, 3));
+    vecmat_f4 t = VECMAT_SWIZZLE(s, 1, 1, 1, 1);
+    return vecmat_first(vecmat_add(s, t));
 }
 
 
 /* Cross multiplication for vec3 */
 static inline vec3 vec3_cross(vec3 u, vec3 v)
 {
-    __m128 tmp0 = _mm_shuffle_ps(u.sse, u.sse, _MM_SHUFFLE(3, 0, 2, 1));
-    __m128 tmp1 = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(3, 1, 0, 2));
-    __m128 tmp2 = _mm_mul_ps(tmp0, v.sse);
-    __m128 tmp3 = _mm_mul_ps(tmp0, tmp1);
-    __m128 tmp4 = _mm_shuffle_ps(tmp2, tmp2, _MM_SHUFFLE(3, 0, 2, 1));
-    return (vec3){.sse = _mm_sub_ps(tmp3, tmp4)};
+    vecmat_f4 tmp0 = VECMAT_SWIZZLE(u.sse, 1, 2, 0, 3);
+    vecmat_f4 tmp1 = VECMAT_SWIZZLE(v.sse, 2, 0, 1, 3);
+    vecmat_f4 tmp2 = vecmat_mul(tmp0, v.sse);
+    vecmat_f4 tmp3 = vecmat_mul(tmp0, tmp1);
+    vecmat_f4 tmp4 = VECMAT_SWIZZLE(tmp2, 1, 2, 0, 3);
+    return (vec3){.sse = vecmat_sub(tmp3, tmp4)};
 }
 
 
@@ -532,8 +681,8 @@ static inline vec4 vec4_lerp(vec4 u, vec4 v, float t)
 /* Transpose matrix */
 static inline mat4 mat4_transpose(mat4 m)
 {
-    _MM_TRANSPOSE4_PS(m.cols[0].sse, m.cols[1].sse, m.cols[2].sse,
-                      m.cols[3].sse);
+    vecmat_transpose(&m.cols[0].sse, &m.cols[1].sse, &m.cols[2].sse,
+                     &m.cols[3].sse);
     return m;
 }
 
@@ -574,15 +723,15 @@ static inline mat4 mat4_scale(float f, mat4 m)
 /* Matrix-vector multiplication */
 static inline vec4 mat4_mul_vec4(mat4 m, vec4 v)
 {
-    __m128 x = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(0, 0, 0, 0));
-    __m128 y = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(1, 1, 1, 1));
-    __m128 z = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(2, 2, 2, 2));
-    __m128 w = _mm_shuffle_ps(v.sse, v.sse, _MM_SHUFFLE(3, 3, 3, 3));
-    __m128 xy =
-        _mm_add_ps(_mm_mul_ps(m.cols[0].sse, x), _mm_mul_ps(m.cols[1].sse, y));
-    __m128 zw =
-        _mm_add_ps(_mm_mul_ps(m.cols[2].sse, z), _mm_mul_ps(m.cols[3].sse, w));
-    return (vec4){.sse = _mm_add_ps(xy, zw)};
+    vecmat_f4 x = VECMAT_SWIZZLE(v.sse, 0, 0, 0, 0);
+    vecmat_f4 y = VECMAT_SWIZZLE(v.sse, 1, 1, 1, 1);
+    vecmat_f4 z = VECMAT_SWIZZLE(v.sse, 2, 2, 2, 2);
+    vecmat_f4 w = VECMAT_SWIZZLE(v.sse, 3, 3, 3, 3);
+    vecmat_f4 xy =
+        vecmat_add(vecmat_mul(m.cols[0].sse, x), vecmat_mul(m.cols[1].sse, y));
+    vecmat_f4 zw =
+        vecmat_add(vecmat_mul(m.cols[2].sse, z), vecmat_mul(m.cols[3].sse, w));
+    return (vec4){.sse = vecmat_add(xy, zw)};
 }
 
 
@@ -813,7 +962,7 @@ static inline vec3 vec3_rotate(vec3 v, float angle, vec3 axis)
 /* Create a quaternion from its components, in storage order */
 static inline quat quat_make(float x, float y, float z, float w)
 {
-    return (quat){.sse = _mm_set_ps(w, z, y, x)};
+    return (quat){.sse = vecmat_set(x, y, z, w)};
 }
 
 /* Unit quaternion rotating angle radians around axis, which must be non-zero */
@@ -834,24 +983,24 @@ static inline quat quat_mul(quat a, quat b)
      * as -ffast-math may turn a -0.0f constant into 0.0f and break the mask. */
     static const union {
         unsigned int bits[3][4];
-        __m128 sse[3];
+        vecmat_f4 sse[3];
     } signs = {{
         {0, 0x80000000u, 0, 0x80000000u},
         {0, 0, 0x80000000u, 0x80000000u},
         {0x80000000u, 0, 0, 0x80000000u},
     }};
-    __m128 ax = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(0, 0, 0, 0));
-    __m128 ay = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(1, 1, 1, 1));
-    __m128 az = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(2, 2, 2, 2));
-    __m128 aw = _mm_shuffle_ps(a.sse, a.sse, _MM_SHUFFLE(3, 3, 3, 3));
-    __m128 b_wzyx = _mm_shuffle_ps(b.sse, b.sse, _MM_SHUFFLE(0, 1, 2, 3));
-    __m128 b_zwxy = _mm_shuffle_ps(b.sse, b.sse, _MM_SHUFFLE(1, 0, 3, 2));
-    __m128 b_yxwz = _mm_shuffle_ps(b.sse, b.sse, _MM_SHUFFLE(2, 3, 0, 1));
-    __m128 tw = _mm_mul_ps(aw, b.sse);
-    __m128 tx = _mm_xor_ps(_mm_mul_ps(ax, b_wzyx), signs.sse[0]);
-    __m128 ty = _mm_xor_ps(_mm_mul_ps(ay, b_zwxy), signs.sse[1]);
-    __m128 tz = _mm_xor_ps(_mm_mul_ps(az, b_yxwz), signs.sse[2]);
-    return (quat){.sse = _mm_add_ps(_mm_add_ps(tw, tx), _mm_add_ps(ty, tz))};
+    vecmat_f4 ax = VECMAT_SWIZZLE(a.sse, 0, 0, 0, 0);
+    vecmat_f4 ay = VECMAT_SWIZZLE(a.sse, 1, 1, 1, 1);
+    vecmat_f4 az = VECMAT_SWIZZLE(a.sse, 2, 2, 2, 2);
+    vecmat_f4 aw = VECMAT_SWIZZLE(a.sse, 3, 3, 3, 3);
+    vecmat_f4 b_wzyx = VECMAT_SWIZZLE(b.sse, 3, 2, 1, 0);
+    vecmat_f4 b_zwxy = VECMAT_SWIZZLE(b.sse, 2, 3, 0, 1);
+    vecmat_f4 b_yxwz = VECMAT_SWIZZLE(b.sse, 1, 0, 3, 2);
+    vecmat_f4 tw = vecmat_mul(aw, b.sse);
+    vecmat_f4 tx = vecmat_xor(vecmat_mul(ax, b_wzyx), signs.sse[0]);
+    vecmat_f4 ty = vecmat_xor(vecmat_mul(ay, b_zwxy), signs.sse[1]);
+    vecmat_f4 tz = vecmat_xor(vecmat_mul(az, b_yxwz), signs.sse[2]);
+    return (quat){.sse = vecmat_add(vecmat_add(tw, tx), vecmat_add(ty, tz))};
 }
 
 
@@ -924,15 +1073,15 @@ static inline quat quat_normalize(quat q)
 /* Conjugate of a quaternion, which is the inverse of a unit quaternion */
 static inline quat quat_conjugate(quat q)
 {
-    __m128 signs = _mm_set_ps(1.0f, -1.0f, -1.0f, -1.0f);
-    return (quat){.sse = _mm_mul_ps(q.sse, signs)};
+    vecmat_f4 signs = vecmat_set(-1.0f, -1.0f, -1.0f, 1.0f);
+    return (quat){.sse = vecmat_mul(q.sse, signs)};
 }
 
 /* Inverse of a quaternion, which must be non-zero */
 static inline quat quat_inverse(quat q)
 {
-    __m128 n = _mm_set_ps1(quat_norm2(q));
-    return (quat){.sse = _mm_div_ps(quat_conjugate(q).sse, n)};
+    vecmat_f4 n = vecmat_splat(quat_norm2(q));
+    return (quat){.sse = vecmat_div(quat_conjugate(q).sse, n)};
 }
 
 
@@ -1037,9 +1186,9 @@ static inline quat quat_nlerp(quat a, quat b, float t)
 {
     /* q and -q are the same rotation, pick the one closest to a */
     float sign = quat_dot(a, b) < 0.0f ? -1.0f : 1.0f;
-    __m128 wa = _mm_set_ps1(1.0f - t);
-    __m128 wb = _mm_set_ps1(sign * t);
-    quat q = {.sse = _mm_add_ps(_mm_mul_ps(wa, a.sse), _mm_mul_ps(wb, b.sse))};
+    vecmat_f4 wa = vecmat_splat(1.0f - t);
+    vecmat_f4 wb = vecmat_splat(sign * t);
+    quat q = {.sse = vecmat_add(vecmat_mul(wa, a.sse), vecmat_mul(wb, b.sse))};
     return quat_normalize(q);
 }
 
@@ -1062,10 +1211,10 @@ static inline quat quat_slerp(quat a, quat b, float t)
 
     float theta = acosf(d);
     float s = sinf(theta);
-    __m128 wa = _mm_set_ps1(sinf((1.0f - t) * theta) / s);
-    __m128 wb = _mm_set_ps1(sign * sinf(t * theta) / s);
+    vecmat_f4 wa = vecmat_splat(sinf((1.0f - t) * theta) / s);
+    vecmat_f4 wb = vecmat_splat(sign * sinf(t * theta) / s);
     return (quat){.sse =
-                      _mm_add_ps(_mm_mul_ps(wa, a.sse), _mm_mul_ps(wb, b.sse))};
+                      vecmat_add(vecmat_mul(wa, a.sse), vecmat_mul(wb, b.sse))};
 }
 
 

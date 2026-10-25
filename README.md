@@ -7,7 +7,9 @@ It is written in C11 and uses intrinsics internally to vectorize the execution.
 
 Copy the header file `vecmat.h` to your repository and include it in the files where you want to use it.
 The header defines all the functions as `static inline` and therefore do not need to define the implementation anywhere, like some other header-only libraries do.
-It only requires SSE, which is always available on x86-64, so no extra compiler flags are needed.
+It uses SSE where it is available, which is always the case on x86-64, so no extra compiler flags are needed.
+On other architectures, such as ARM, the vectors are plain floats that the compiler vectorizes on its own.
+Define `VECMAT_NO_SIMD` before including the header to use plain floats on x86-64 as well.
 
 The library has support for `vec2`, `vec3`, `vec4`, and `mat4` (4-by-4 matrices) with single floating point precision (32-bit).
 All vector types are stored in a 16-byte SIMD register, so `vec2` and `vec3` have unused lanes.
